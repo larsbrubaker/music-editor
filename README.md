@@ -7,6 +7,8 @@ uses it to enter music notation with compass gestures. This repo ports every
 step of that course to the browser and presents the lessons, the working demo
 for each step, and the finished editor as a static site.
 
+![A short score entered with gestures: two staffs, clefs, a key signature, a beamed group, rests and repeat dots](assets/screenshot.png)
+
 - **Site:** https://larsbrubaker.github.io/music-editor/
 - **Original course:** https://depts.washington.edu/cprogs/BCS/Books/BCS_MidJava.html
 

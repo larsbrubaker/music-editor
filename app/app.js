@@ -3,6 +3,7 @@ import { ready } from '../site/demo.js';
 import { MusicEd } from '../src/music/MusicEd.js';
 import { Shape } from '../src/reaction/Shape.js';
 import { Gesture } from '../src/reaction/Gesture.js';
+import { Glyph } from '../src/music/Glyph.js';
 
 const $ = (id) => document.getElementById(id);
 const status = $('status');
@@ -18,6 +19,7 @@ app.onChange = showStatus;
 showStatus();
 
 $('undo').addEventListener('click', () => { app.undo(); showStatus(); });
+$('boxes').addEventListener('change', () => { Glyph.debugBoxes = $('boxes').checked; app.repaint(); });
 $('newpage').addEventListener('click', () => { app.newPage(); showStatus(); });
 $('train').addEventListener('click', () => {
   app.toggleTraining();

@@ -3,14 +3,10 @@
 Working document (see `docs/CLAUDE.md`): only what is still to do, in order. Delete
 items as they land and delete the file when it is empty.
 
-1. **Lesson pages.** `site/nav.js` links `lessons/01-warm-up.html` ...
-   `08-refactoring-and-appendix.html`; none exist. Each page: the chapter's sections in
-   our own words (link to the original text, do not copy it), the real source via
-   `<div class="code" data-src="src/...">`, demos via
-   `<div class="demo" data-app="Squares2" data-toggles="showSpline:Show spline">`
-   (see `site/demo.js`, `site/code.js`, `site/lesson.js`). Demos per chapter:
-   1 RedRect/PaintShapes/Paint; 2 Squares1/Squares2/SquaresGame/Squares; 3 none;
-   4 PaintInk/ShapeTrainer; 5 ReactionTest; 6 MusicEd; 7 GlyphSheet/MusicEd; 8 SplineDemo.
-2. **Review pass** with the `reviewer` agent over `src/reaction` and `src/music`.
-3. Nice to have: mobile/touch check, `Glyph.debugBoxes` toggle in the app, a use for the
-   "O" gesture, a README screenshot.
+1. **Review fixes.** The reviewer pass over `src/reaction` and `src/music` found: Rest
+   E-E/W-W bids with no y bound; `Key.gapForGlyph` inverted in H; `Bar.barType` mixing
+   the 0..2 shape with the LEFT/RIGHT dot bits; Head DOT bidding with no stem (a no-op
+   on the undo list); plus small ones (PaintInk leaving `Ink.Buffer.arcLength` set,
+   Head stem bid going negative, `Trainer.removePrototype` box index, dead code,
+   missing `barContinues` test). Fix test-first, then a second reviewer pass, then commit.
+2. Nice to have: a use for the "O" gesture, a README screenshot.

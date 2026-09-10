@@ -1,0 +1,13 @@
+{
+  "name": "music-editor",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "description": "A gesture based music notation editor in JavaScript, following Marlin Eller's Intermediate Java course.",
+  "scripts": {
+    "dev": "bun scripts/dev.js",
+    "test": "node --test tests/",
+    "gen-shapes": "node scripts/gen-shapes.js"
+  },
+  "engines": { "node": ">=20" }
+}

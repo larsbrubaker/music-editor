@@ -1,6 +1,7 @@
 // Bar - a barline through every staff of a system. barType: 0 single, 1 double,
-// 2 fine; with the LEFT/RIGHT bits set it is a repeat with dots on that side.
-// Double bars can also carry a Key signature change.
+// 2 fine; with the LEFT/RIGHT bits set it is a repeat with dots on that side. A
+// repeat draws its own form (fat bar, wings) and hides the shape; the shape still
+// decides whether the bar can carry a Key change (double bars only).
 import { Color } from '../graphics/Color.js';
 import { UC } from '../graphics/UC.js';
 import { idiv } from '../graphics/G.js';
@@ -9,7 +10,7 @@ import { Reaction } from '../reaction/Reaction.js';
 import { Key } from './Key.js';
 import { Glyph } from './Glyph.js';
 
-const FAT = 2, RIGHT = 4, LEFT = 8; // bits in barType
+const RIGHT = 4, LEFT = 8; // the repeat dot bits in barType; the low two bits are the shape
 
 export class Bar extends Mass {
   constructor(sys, x) {
@@ -40,7 +41,7 @@ export class Bar extends Mass {
       (g) => { if (g.vs.xM() < this.x) { this.toggleLeft(); } else { this.toggleRight(); } }));
 
     const keyBid = (g) => { // a horizontal stroke crossing a double bar inside the system
-      if (this.barType !== 1) { return UC.noBid; } // keys only change on double bars
+      if (this.barShape() !== 1) { return UC.noBid; } // keys only change on double bars
       const x1 = g.vs.xL(), x2 = g.vs.xH();
       if (x1 > this.x || x2 < this.x) { return UC.noBid; }
       const y = g.vs.yM();
@@ -51,7 +52,7 @@ export class Bar extends Mass {
     this.addReaction(new Reaction('W-W', keyBid, (g) => { this.decKey(); }));
   }
 
-  cycleType() { this.barType++; if (this.barType > 2) { this.barType = 0; } }
+  cycleType() { this.barType = (this.barType & ~3) | ((this.barShape() + 1) % 3); } // the shape bits only
   toggleLeft() { this.barType = this.barType ^ LEFT; }
   toggleRight() { this.barType = this.barType ^ RIGHT; }
 
@@ -70,6 +71,12 @@ export class Bar extends Mass {
     if (this.key.n > -7) { this.key.n--; }
   }
 
+  // The course text reads barType as a plain 0..2 enum in cycleType, drawLines, show and
+  // keyBid, so setting a repeat dot (bit 4 or 8) makes the bar stop being a double bar:
+  // its key vanishes and it refuses key changes. Shape and dots are separate here.
+  barShape() { return this.barType & 3; }
+  isRepeat() { return (this.barType & (LEFT | RIGHT)) !== 0; }
+
   show(g) {
     g.setColor(Color.BLACK);
     let y1 = 0, y2 = 0; // top and bottom of the current connected component
@@ -80,21 +87,22 @@ export class Bar extends Mass {
       y2 = staff.yBot();
       if (!sf.barContinues) { this.drawLines(g, this.x, y1, y2); } // lines show only at the end of a component
       justSawBreak = !sf.barContinues;
-      if (this.barType > 3) { this.drawDots(g, this.x, staff.yTop()); } // dots on every staff of a repeat
+      if (this.isRepeat()) { this.drawDots(g, this.x, staff.yTop()); } // dots on every staff of a repeat
     }
-    if (this.barType === 1 && this.key != null) { this.key.drawOnSys(g, this.sys, this.x + UC.barKeyOffset); }
+    if (this.barShape() === 1 && this.key != null) { this.key.drawOnSys(g, this.sys, this.x + UC.barKeyOffset); }
   }
 
   drawLines(g, x, y1, y2) {
-    const H = this.sys.page.maxH, t = this.barType;
-    if (t === 0) { Bar.thinBar(g, x, y1, y2); }
-    if (t === 1) { Bar.thinBar(g, x, y1, y2); Bar.thinBar(g, x - H, y1, y2); }
-    if (t === 2) { Bar.fatBar(g, x - H, y1, y2, H); Bar.thinBar(g, x - 2 * H, y1, y2); }
-    if (t >= 4) {
-      Bar.fatBar(g, x - H, y1, y2, H); // all repeats have a fat bar
-      if ((t & LEFT) !== 0) { Bar.thinBar(g, x - 2 * H, y1, y2); Bar.wings(g, x - 2 * H, y1, y2, -H, H); }
-      if ((t & RIGHT) !== 0) { Bar.thinBar(g, x + H, y1, y2); Bar.wings(g, x + H, y1, y2, H, H); }
+    const H = this.sys.page.maxH, t = this.barShape();
+    if (!this.isRepeat()) { // a plain bar: the shape bits pick the drawing
+      if (t === 0) { Bar.thinBar(g, x, y1, y2); }
+      if (t === 1) { Bar.thinBar(g, x, y1, y2); Bar.thinBar(g, x - H, y1, y2); }
+      if (t === 2) { Bar.fatBar(g, x - H, y1, y2, H); Bar.thinBar(g, x - 2 * H, y1, y2); }
+      return;
     }
+    Bar.fatBar(g, x - H, y1, y2, H); // all repeats have a fat bar
+    if ((this.barType & LEFT) !== 0) { Bar.thinBar(g, x - 2 * H, y1, y2); Bar.wings(g, x - 2 * H, y1, y2, -H, H); }
+    if ((this.barType & RIGHT) !== 0) { Bar.thinBar(g, x + H, y1, y2); Bar.wings(g, x + H, y1, y2, H, H); }
   }
   drawDots(g, x, top) { // from the top of a single staff; assumes 5 lines
     const H = this.sys.page.maxH;
@@ -111,4 +119,4 @@ export class Bar extends Mass {
   static fatBar(g, x, y1, y2, dx) { g.fillRect(x, y1, dx, y2 - y1); }
   static thinBar(g, x, y1, y2) { g.drawLine(x, y1, x, y2); }
 }
-Bar.FAT = FAT; Bar.RIGHT = RIGHT; Bar.LEFT = LEFT;
+Bar.RIGHT = RIGHT; Bar.LEFT = LEFT;

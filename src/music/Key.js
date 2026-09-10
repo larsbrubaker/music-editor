@@ -16,11 +16,13 @@ export class Key {
     const gap = Key.gapForGlyph(glyph, staff);
     for (let i = 0; i < n; i++) { glyph.showAt(g, staff.fmt.H, x + i * gap, staff.yOfLine(lines[i])); }
   }
+  // The gaps are the glyph widths at H = 8 scaled to this staff's H. The course text
+  // divides by h instead of multiplying, which shrinks the gap as the glyphs grow.
   static gapForGlyph(glyph, staff) {
     const h = staff.fmt.H;
-    if (glyph === Glyph.SHARP) { return idiv(22 * 8, h); } // approximate width of #
-    if (glyph === Glyph.FLAT) { return idiv(18 * 8, h); }  // approximate width of b
-    return idiv(16 * 8, h); // approximate width of a natural sign
+    if (glyph === Glyph.SHARP) { return idiv(22 * h, 8); } // approximate width of #
+    if (glyph === Glyph.FLAT) { return idiv(18 * h, 8); }  // approximate width of b
+    return idiv(16 * h, 8); // approximate width of a natural sign
   }
 
   drawOnSys(g, sys, x) {

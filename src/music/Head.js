@@ -27,8 +27,10 @@ export class Head extends Mass {
         if (yH < y1 || yH > y2) { return UC.noBid; } // heads outside the y range reject this gesture
         const hLeft = this.time.x, hRight = hLeft + W; // left and right side of the Head
         if (gx < hLeft - W || gx > hRight + W) { return UC.noBid; } // must be reasonably close to a head
-        if (gx < (hLeft + idiv(W, 2))) { return hLeft - gx; }
-        if (gx > (hRight - idiv(W, 2))) { return gx - hRight; }
+        // Math.abs, not the course's raw difference: a stroke through the head's interior
+        // is past the side it is bidding on, and a negative bid beats every other bidder.
+        if (gx < (hLeft + idiv(W, 2))) { return Math.abs(hLeft - gx); }
+        if (gx > (hRight - idiv(W, 2))) { return Math.abs(gx - hRight); }
         return UC.noBid;
       },
       (g) => {
@@ -42,7 +44,9 @@ export class Head extends Mass {
       (g) => {
         const xh = this.x(), yh = this.y(), h = this.staff.H(), w = this.W();
         const gx = g.vs.xM(), gy = g.vs.yM();
-        if (gx < xh || gx > xh + 2 * w || gy < yh - h || gy > yh + h) { return UC.noBid; }
+        // this.stem == null is a deviation: the course bids, wins, and then its act does
+        // nothing, so a no-op gesture lands on Gesture.UNDO and beats the real bidders.
+        if (this.stem == null || gx < xh || gx > xh + 2 * w || gy < yh - h || gy > yh + h) { return UC.noBid; }
         return Math.abs(xh + w - gx) + Math.abs(yh - gy);
       },
       (g) => { if (this.stem != null) { this.stem.cycleDot(); } }));
@@ -78,7 +82,6 @@ export class Head extends Mass {
   unStem() {
     if (this.stem != null) { this.stem.removeHead(this); } // removeHead also nulls stem and wrongSide, and deletes an empty stem
   }
-  deleteHead() { this.unStem(); this.time.removeHead(this); this.deleteMass(); }
 
   // sort order: by staff, then by line (top to bottom)
   compareTo(h) { return (this.staff.iStaff !== h.staff.iStaff) ? this.staff.iStaff - h.staff.iStaff : this.line - h.line; }

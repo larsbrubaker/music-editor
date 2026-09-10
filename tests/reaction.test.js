@@ -9,6 +9,7 @@ import { Layer } from '../src/reaction/Layer.js';
 import { Mass } from '../src/reaction/Mass.js';
 import { Gesture } from '../src/reaction/Gesture.js';
 import { World } from '../src/reaction/World.js';
+import { Ink } from '../src/reaction/Ink.js';
 import { compassStroke, inkFromPoints } from './helpers/strokes.js';
 
 Shape.DB.mergeJSON(JSON.parse(readFileSync(new URL('../assets/shapes.json', import.meta.url))));
@@ -91,7 +92,9 @@ test('a recognized gesture with no bidders reports "no bids" and is not undoable
 });
 
 test('World.reset forgets initial reactions so another app can start clean', () => {
+  Ink.Buffer.arcLength = false; // PaintInk's index sampling toggle is global state
   World.reset();
+  assert.equal(Ink.Buffer.arcLength, true, 'the next app gets the default sub-sampler back');
   assert.equal(Reaction.initialReactions.length, 0);
   assert.equal(Layer.ALL.length, 0);
 });

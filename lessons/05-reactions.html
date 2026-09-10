@@ -75,7 +75,7 @@
   <h2>Afterthoughts <span class="day">Day 10</span></h2>
   <p>He then cannot resist designing the one-time offer anyway, on paper. The reasoning is a nice tour of the architecture: only one is ever needed, it must be a Mass because it draws and reacts, but it need not be created and destroyed &mdash; it can live permanently in the top layer and use an enabled flag to draw nothing and bid <code>noBid</code> when it is off. Dismissing it happens after the winning reaction is collected, and because there are two paths through the code it has to be dismissed in both <code>doGesture</code> and <code>redoGesture</code>. Nothing is implemented; nothing in this port implements it either. The point that survives is that living in a layer does not mean being visible or reactive.</p>
   <p>The chapter closes by going back and adding something to the Shape Trainer from the previous chapter: deleting a bad prototype. He had told the class it was too hard, and then noticed it was a handful of lines. The prototype thumbnails march across the top of the screen at algorithmically regular positions, so if a stroke ends up in that strip, ignore the ink entirely, divide the x coordinate by the box size to get an index, and remove that prototype. That code is in <code>src/reaction/Shape.js</code> as <code>Trainer.removePrototype</code>, called first thing in the trainer's <code>up</code>, and you can use it in the trainer demo on the previous page.</p>
-  <div class="code" data-src="src/reaction/Shape.js" data-lines="196-209"></div>
+  <div class="code" data-src="src/reaction/Shape.js" data-lines="195-208"></div>
 
   <div class="pn"><a href="04-recognition.html">&larr; 4. Recognition</a><a href="06-music.html">6. Music &rarr;</a></div>
 </main>

@@ -143,7 +143,6 @@ Staff.Fmt = class {
   toggleBarContinues() { this.barContinues = !this.barContinues; }
   height() { return 2 * this.H * (this.nLines - 1); }
 };
-Staff.Fmt.DEFAULT = new Staff.Fmt(5, 8);
 
 //--------------------STAFF.LIST-------------------
 Staff.List = class extends Array {

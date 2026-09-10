@@ -21,7 +21,7 @@ export class PaintInk extends WinApp {
 
   paintComponent(g) {
     G.fillBack(g);
-    PL.showDots = this.showDots; Ink.Buffer.showBBox = this.showBBox; Ink.Buffer.arcLength = !this.indexSampling;
+    PL.showDots = this.showDots; Ink.Buffer.showBBox = this.showBBox;
     g.setColor(Color.RED); Ink.BUFFER.show(g);
     PL.showDots = false; Ink.Buffer.showBBox = false;
     this.inkList.show(g);
@@ -41,6 +41,10 @@ export class PaintInk extends WinApp {
   mouseDragged(me) { Ink.BUFFER.drag(me.getX(), me.getY()); this.repaint(); }
   mouseReleased(me) {
     Ink.BUFFER.up(me.getX(), me.getY());
+    // The toggle has to be set while the stroke is normalized, and put back afterwards:
+    // Ink.Buffer.arcLength is global, so leaving it set changes every later app on the page.
+    const wasArcLength = Ink.Buffer.arcLength;
+    Ink.Buffer.arcLength = !this.indexSampling;
     const ink = new Ink();
     const s = Shape.recognize(ink);
     this.recognized = 'Recog: ' + ((s != null) ? s.name : 'UN-RECOGNIZED');
@@ -54,6 +58,7 @@ export class PaintInk extends WinApp {
       this.pList.push(proto); // new Prototype
     }
     ink.norm = proto; // share the norm: every matching ink on screen smooths as the prototype blends
+    Ink.Buffer.arcLength = wasArcLength;
     this.repaint();
   }
 }

@@ -12,5 +12,6 @@ export const World = {
     Gesture.clearUndo();
     Gesture.recognized = 'null';
     Ink.BUFFER.clear();
+    Ink.Buffer.arcLength = true; // PaintInk's index sampling toggle is global; a new app starts on the default
   },
 };

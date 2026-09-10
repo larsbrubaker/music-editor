@@ -203,3 +203,84 @@ test('N-N undoes the last gesture by replaying the rest; trainer toggle switches
   assert.equal(app.training, true); assert.equal(app.curArea, Shape.TRAINER);
   app.toggleTraining(); assert.equal(app.curArea, Gesture.AREA);
 });
+
+test('a rest only reacts to horizontal strokes near its own staff', () => {
+  vee('W-S', 500, 110, 20, 20);
+  const r = masses(Rest)[0];
+  line('E-E', 470, 700, 530, 700); // spans the rest's x, but way below the staff
+  assert.equal(r.nFlag, 0, 'a stroke off the staff is not this rest\'s business');
+  line('W-W', 600, 300, 300, 300); // adds a second staff: the Page must win, not the rest
+  assert.equal(page().sysList[0].nStaff(), 2);
+  assert.equal(r.nFlag, 0);
+});
+
+test('key signature spacing grows with the size of the staff', () => {
+  const sys = page().sysList[0];
+  line('E-E', 30, 130, 80, 130); line('E-E', 30, 130, 80, 130); // two sharps at the left margin
+  assert.equal(sys.initialKey.n, 2);
+  const sharpXs = () => {
+    const g = new RecordingGraphics(); app.paintComponent(g);
+    return g.named('drawString').filter((c) => c.args[0] === String.fromCharCode(Glyph.SHARP.code)).map((c) => c.args[1]);
+  };
+  const small = sharpXs(); assert.equal(small.length, 2);
+  assert.equal(small[1] - small[0], 22, 'gap at H=8');
+  staff().fmt.H = 16; // twice as big a staff draws twice as big a glyph
+  const big = sharpXs();
+  assert.equal(big[1] - big[0], 44, 'gap at H=16');
+});
+
+test('repeat dots do not disturb the bar type: a dotted double bar keeps its key', () => {
+  vee('SW-SE', 500, 100, 45, 45); // a G clef, so the key has lines to draw on
+  line('S-S', 300, 100, 300, 164); line('S-S', 300, 100, 300, 164); // a double bar
+  const bar = masses(Bar)[0]; assert.equal(bar.barType, 1);
+  line('E-E', 270, 130, 330, 130); assert.equal(bar.key.n, 1);
+  const nSharp = () => {
+    const g = new RecordingGraphics(); app.paintComponent(g);
+    return g.named('drawString').filter((c) => c.args[0] === String.fromCharCode(Glyph.SHARP.code)).length;
+  };
+  assert.equal(nSharp(), 1);
+  dot(285, 130); // a repeat dot on the left
+  assert.equal(bar.barType & Bar.LEFT, Bar.LEFT);
+  assert.equal(bar.barType & 3, 1, 'still a double bar');
+  assert.equal(nSharp(), 1, 'the key at the bar is still drawn');
+  line('E-E', 270, 130, 330, 130); assert.equal(bar.key.n, 2, 'the bar still takes key changes');
+  line('S-S', 300, 100, 300, 164); // cycling the shape keeps the repeat dot
+  assert.equal(bar.barType & 3, 2); assert.equal(bar.barType & Bar.LEFT, Bar.LEFT);
+});
+
+test('a DOT beside a stemless head is nobody\'s business', () => {
+  line('S-S', 300, 100, 300, 164); // a bar, which does want repeat dots
+  const bar = masses(Bar)[0];
+  head(288, 116); head(700, 116);
+  const [h, far] = masses(Head);
+  assert.equal(h.stem, null);
+  const nUndo = Gesture.UNDO.length;
+  dot(far.x() + far.W() + 2, far.y()); // beside a stemless head, far from every other mass
+  assert.equal(Gesture.UNDO.length, nUndo, 'a gesture whose act does nothing is not undoable');
+  dot(h.x() + h.W() + 2, h.y());       // beside a stemless head, and 9 px from the bar
+  assert.equal(bar.barType & Bar.RIGHT, Bar.RIGHT, 'the bar takes the dot, not the stemless head');
+});
+
+test('an S-S through a head\'s interior does not outbid the bar it is drawn on', () => {
+  line('S-S', 300, 100, 300, 164); // a bar first, so the head has something to compete with
+  const bar = masses(Bar)[0]; assert.equal(bar.x, 300);
+  head(288, 116);
+  const h = masses(Head)[0]; assert.equal(h.time.x, 288);
+  line('S-S', 300, 100, 300, 164); // 7 px inside the head's right edge, dead on the bar
+  assert.equal(bar.barType, 1, 'the bar cycled');
+  assert.equal(h.stem, null, 'the head is not closer than the bar it sits on');
+});
+
+test('barContinues joins the barline through both staffs', () => {
+  line('W-W', 600, 250, 300, 250); // a second staff
+  line('S-S', 300, 100, 300, 164); // a bar on the first staff
+  const bar = masses(Bar)[0];
+  const barLines = () => {
+    const g = new RecordingGraphics(); app.paintComponent(g);
+    return g.named('drawLine').filter((c) => c.args[0] === bar.x && c.args[2] === bar.x).map((c) => [c.args[1], c.args[3]]);
+  };
+  assert.deepEqual(barLines(), [[100, 164], [250, 314]], 'one line per staff');
+  line('S-S', 400, 164, 400, 250); // bottom line of staff 0 to top line of staff 1
+  assert.equal(staff(0).fmt.barContinues, true);
+  assert.deepEqual(barLines(), [[100, 314]], 'one line through both');
+});

@@ -143,10 +143,8 @@ Shape.loadDefaults = async function (url = UC.shapeDatabaseUrl) {
       for (const [name, s] of base) { if (!Shape.DB.has(name) || Shape.DB.get(name).prototypes.length === 0) { Shape.DB.forceGet(name).prototypes = s.prototypes; } }
     }
   } catch (e) { console.log('default shapes not loaded', e); }
-  Shape.ready = true;
   return Shape.DB;
 };
-Shape.ready = false;
 
 //----------------------Trainer---the training App -----------------------
 // An I.Show + I.Area that trains prototypes for whatever name the user has typed.
@@ -194,13 +192,15 @@ export class Trainer {
     this.savedMsg = ' (unsaved changes)';
   }
 
-  // a stroke that ends up in the showbox area deletes the prototype it landed on
+  // A stroke that ends up in the showbox area deletes the prototype it landed on.
+  // The boxes start at x = m and are m + w apart, so the box number has to subtract the
+  // margin first; the course's idiv(x, m + w) is off by one at the right edge of a box.
   removePrototype(x, y) {
-    const H = Prototype.List.showboxHeight;
+    const { m, w, showboxHeight: H } = Prototype.List;
     if (y < H) {
-      const ndx = idiv(x, H); // compute a box number
+      const ndx = idiv(x - m, m + w); // compute a box number
       const plist = this.pList;
-      if (plist != null && ndx < plist.length) { plist.splice(ndx, 1); this.savedMsg = ' (unsaved changes)'; }
+      if (plist != null && ndx >= 0 && ndx < plist.length) { plist.splice(ndx, 1); this.savedMsg = ' (unsaved changes)'; }
       Ink.BUFFER.clear();
       return true;
     }

@@ -116,3 +116,18 @@ test('a stroke with only a few mouse samples still recognizes (arc-length resamp
   // a V with one sample per leg
   assert.equal(Shape.recognize(inkFromPoints([[400, 100], [300, 200], [400, 300]])).name, 'SW-SE');
 });
+
+test('clicking a prototype box deletes the box that was drawn there', () => {
+  const saved = Shape.DB; Shape.DB = new Database();
+  try {
+    const t = new Trainer();
+    for (const c of 'R-R') { t.keyTyped({ getKeyChar: () => c }); }
+    const draw = (pts) => { t.dn(...pts[0]); for (const p of pts.slice(1, -1)) { t.drag(...p); } t.up(...pts[pts.length - 1]); };
+    draw(compassStroke('W-S')); draw(compassStroke('W-S', { jitter: 2 })); // blend: prototype 0 has nBlend 2
+    draw(compassStroke('N-N', { y0: 400 }));                              // a different stroke: prototype 1
+    assert.deepEqual(Shape.DB.get('R-R').prototypes.map((p) => p.nBlend), [2, 1]);
+    // boxes are drawn at x = m + i*(m+w), so box 0 covers x 10..70
+    t.dn(70, 15); t.up(70, 15);
+    assert.deepEqual(Shape.DB.get('R-R').prototypes.map((p) => p.nBlend), [1], 'the box under the click went away');
+  } finally { Shape.DB = saved; }
+});

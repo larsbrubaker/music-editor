@@ -14,9 +14,14 @@ export class Rest extends Duration {
     this.staff = staff; this.time = time;
     this.line = 4; // the default location of any rest: the center line
 
-    const crossBid = (g) => { // a horizontal stroke crossing the rest's x
+    const crossBid = (g) => { // a horizontal stroke crossing the rest's x, on the rest's own staff
       const y = g.vs.yM(), x1 = g.vs.xL(), x2 = g.vs.xH(), x = this.time.x;
       if (x1 > x || x2 < x) { return UC.noBid; }
+      // Deviation from the course, which has no y bound here: a rest then bids on any
+      // horizontal stroke spanning its x anywhere on the page, and usually wins (the Page
+      // bids 1000 to add a staff). Bound it to the staff the way Staff.onStaffBid does.
+      const H = this.staff.H();
+      if (y < this.staff.yTop() - H || y > this.staff.yBot() + H) { return UC.noBid; }
       return Math.abs(y - this.staff.yLine(4));
     };
     this.addReaction(new Reaction('E-E', crossBid, (g) => { this.incFlag(); }));

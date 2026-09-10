@@ -18,6 +18,7 @@ const reloadScript = `<script>(function(){var es=new EventSource('/__events');es
 
 Bun.serve({
   port,
+  hostname: '127.0.0.1', // never reachable from the LAN: the screenshot endpoint writes into the repo
   async fetch(req) {
     const url = new URL(req.url);
     if (url.pathname === '/__events') {
@@ -27,6 +28,21 @@ Bun.serve({
         cancel() { clients.delete(controller); },
       });
       return new Response(stream, { headers: { 'Content-Type': 'text/event-stream', 'Cache-Control': 'no-cache' } });
+    }
+    // POST a PNG here to save it as the README screenshot. Only this one path can be
+    // written, only from a page served by this server. From the app page's console:
+    //   const c = document.getElementById('stage'), o = document.createElement('canvas');
+    //   o.width = 1000; o.height = 420; const x = o.getContext('2d');
+    //   x.fillStyle = '#fff'; x.fillRect(0, 0, 1000, 420); x.drawImage(c, 0, 0, c.width, c.height * 420 / 800, 0, 0, 1000, 420);
+    //   o.toBlob((b) => fetch('/__screenshot', { method: 'POST', body: b }), 'image/png');
+    if (url.pathname === '/__screenshot' && req.method === 'POST') {
+      const origin = req.headers.get('Origin') || '';
+      if (!/^http:\/\/(localhost|127\.0\.0\.1)(:\d+)?$/.test(origin)) { return new Response('local pages only', { status: 403 }); }
+      const bytes = new Uint8Array(await req.arrayBuffer());
+      const isPng = bytes.length > 8 && bytes[0] === 0x89 && bytes[1] === 0x50 && bytes[2] === 0x4E && bytes[3] === 0x47;
+      if (!isPng || bytes.length > 4_000_000) { return new Response('expected a PNG under 4 MB', { status: 400 }); }
+      await Bun.write(join(root, 'assets', 'screenshot.png'), bytes);
+      return new Response('saved assets/screenshot.png (' + bytes.length + ' bytes)');
     }
     let path = decodeURIComponent(url.pathname);
     if (path.endsWith('/')) { path += 'index.html'; }
@@ -51,6 +67,7 @@ Bun.serve({
 let pending = null;
 watch(root, { recursive: true }, (event, filename) => {
   if (!filename || /(^|[\\/])(\.git|node_modules)([\\/]|$)/.test(filename)) { return; }
+  if (/screenshot\.png$/.test(filename)) { return; } // saved by the page itself; reloading it would cut the save short
   clearTimeout(pending);
   pending = setTimeout(() => {
     for (const c of clients) { try { c.enqueue('data: reload\n\n'); } catch (e) { clients.delete(c); } }

@@ -69,3 +69,6 @@ table.g th { background: #f2f3f6; }
 .legend li { display: grid; grid-template-columns: 62px 1fr; gap: 8px; padding: 4px 0; border-bottom: 1px dashed var(--line); }
 .legend li b { font: 600 13px var(--mono); color: var(--accent); }
 @media (max-width: 860px) { .editor { grid-template-columns: 1fr; } .editor aside { position: static; max-height: none; } .hero { grid-template-columns: 1fr; } }
+/* lesson pages */
+.kicker { color: var(--accent); font-size: 12px; letter-spacing: .08em; text-transform: uppercase; margin: 0 0 4px; }
+.orig { font-size: 14px; color: var(--muted); border-left: 3px solid var(--line); padding-left: 12px; }

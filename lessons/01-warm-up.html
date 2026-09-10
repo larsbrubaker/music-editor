@@ -1,0 +1,66 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>1. Warm Up - Gesture Music Editor</title>
+<link rel="stylesheet" href="../site/site.css">
+</head>
+<body>
+<header class="top" data-current="01-warm-up"></header>
+<main>
+  <p class="kicker">Chapter 1</p>
+  <h1>Warm Up</h1>
+  <p class="lead">What the course is trying to teach, the one helper class that hides the window system, and the graphics Hello World: a rectangle, some shapes and text, the mouse, and a Paint program that draws polylines.</p>
+  <p class="orig">Follows the chapter <em>Warm Up</em> of Marlin Eller's <a href="https://depts.washington.edu/cprogs/BCS/Books/BCS_MidJava.html">Intermediate Java</a> (sections Intro through Multi-Line Paint). The original is written for Java and IntelliJ IDEA; this page follows it in JavaScript in the browser and says where the two differ.</p>
+
+  <h2>What this course is about</h2>
+  <p>Eller's premise is that a beginning course teaches the materials (classes, loops, lists) and an intermediate one should teach buildings. The way to learn how a thirty-class program hangs together is to watch one get built, so the whole course is a narrated code review of a project he first wrote in 2005 and rebuilt for the class: a music notation editor driven entirely by pen gestures. The emphasis is on reading code and seeing it take shape rather than inventing it yourself, and you are expected to already know the basics: classes, static versus instance members, interfaces, <code>ArrayList</code> and <code>HashMap</code>.</p>
+  <p>The notes were written to be worked through at the pace of a class that meets twice a week for two hours, and the text carries <span class="day">Day 1</span> markers so you can see how far each session got. The same markers appear on these pages.</p>
+
+  <h2>Project and packages <span class="day">Day 1</span></h2>
+  <p>The Java project starts with four packages, and Eller spends some time on why: a directory structure is a filing system, and its only job is to make things easy to find later. His four folders are <b>graphics</b> for general 2D drawing helpers that could serve any project, <b>reaction</b> for the gesture framework (general, but not a traditional GUI, so it stays separate), <b>music</b> for everything that knows what a staff is, and <b>sandbox</b> for code he does not care about: experiments, throwaway tests, lesson demos. Anything worth keeping moves out of the sandbox.</p>
+  <p>This port keeps exactly that layout under <code>src/</code>, so the project map in the README reads the same as the course's package list.</p>
+  <div class="java"><b>Java &rarr; JavaScript.</b> There is no IDE to install and no <code>package</code> statement to fix up. Each class is an ES module in a file of the same name, and the <code>import</code> lines at the top of every file do the job of Java's imports. There is also no build step: the browser loads the modules straight from the repository, which is why the whole site can be hosted as static files.</div>
+
+  <h2>WinApp: the one window helper</h2>
+  <p>Eller does not teach Swing. He hands you a single class, <code>WinApp</code>, that does all the window-system chores (create a frame, register itself as the mouse and keyboard listener, hand out a <code>Graphics</code> object) and then does nothing with any of it. Every program in the course extends <code>WinApp</code> and overrides the handful of methods it cares about: <code>paintComponent</code>, <code>mousePressed</code>, <code>mouseDragged</code>, <code>mouseReleased</code>, <code>keyTyped</code>. His point is that he is not teaching you to <em>use</em> menus and scroll bars but to <em>write</em> them, so the helper stays as thin as possible.</p>
+  <div class="java"><b>Java &rarr; JavaScript.</b> Here <code>WinApp</code> wraps a <code>&lt;canvas&gt;</code> instead of a <code>JPanel</code>. The shape is the same: extend it, override the same method names, call <code>repaint()</code>. Two things are worth knowing. The canvas keeps the logical size you asked for in the constructor no matter how CSS or a high-DPI screen scales it, so all the course's pixel arithmetic still works. And mouse listeners become pointer events, which means a pen or a finger works the same as a mouse. The <code>Graphics</code> class is a small shim that maps the <code>java.awt.Graphics</code> calls the course uses (<code>setColor</code>, <code>fillRect</code>, <code>drawLine</code>, <code>drawString</code>, font metrics) onto the canvas context.</div>
+  <div class="code" data-src="src/graphics/WinApp.js"></div>
+  <div class="code" data-src="src/graphics/Graphics.js"></div>
+
+  <h2>Testing WinApp: RedRect</h2>
+  <p>The graphical Hello World is a class that extends <code>WinApp</code> and overrides <code>paintComponent</code> to fill one red square, 100 pixels in from the left, 100 down from the top, 100 wide and 100 high. That is the whole program. Eller uses it to make three points: every app needs the same boilerplate (extend the helper, write a constructor, override paint), the IDE will nag you about missing imports and you fix them, and the coordinate system has its origin at the top left with <em>y</em> growing downward, because computers were drawing text top to bottom long before they drew pictures.</p>
+  <div class="demo" data-app="RedRect" data-name="RedRect" data-note="the smallest possible WinApp"></div>
+  <div class="code" data-src="src/sandbox/RedRect.js" data-open="true"></div>
+  <h3>The @Override lesson</h3>
+  <p>The section ends with a long, useful digression. Misspell <code>paintComponent</code> as <code>painComponent</code> and Java compiles it happily: you have not overridden anything, you have defined a new method nobody calls, and the window stays blank with no error anywhere. Java's <code>@Override</code> annotation exists to catch exactly that, and Eller admits he often leaves it out because his IDE colors the intent for him. His real point is about writing for the humans who read the code later, not for the compiler.</p>
+  <div class="java"><b>Java &rarr; JavaScript.</b> The trap is worse in JavaScript, because there is no annotation to ask for. A misspelled <code>paintComponent</code> is silently just another method. If a demo on these pages ever draws nothing, that is the first thing to check.</div>
+
+  <h2>Paint: output, text, color and the mouse</h2>
+  <p>From here on the course stops handing over whole files and gives fragments with the thinking behind them: "create me a WinApp named Paint" is expected to make you write the constructor, the main routine and a test <code>paintComponent</code> without being told. The next four sections then tour the basic drawing calls in that Paint app:</p>
+  <ul>
+    <li><b>Swing Output.</b> <code>fillRect</code>, <code>drawRect</code>, <code>drawOval</code>, <code>fillOval</code> and <code>drawLine</code>, all in "local coordinates" that the <code>Graphics</code> object translates to wherever the window happens to be on whichever screen. <code>setColor</code> is a state setting, so paint code is runs of "set a color, draw some things".</li>
+    <li><b>Text Output.</b> <code>drawString</code> puts text on a <em>baseline</em> at (x, y), not in a box whose corner is at (x, y). To know where the text really landed you ask the font metrics for the ascent, descent and string width, which is what you will need later to tell whether a click hit a word.</li>
+    <li><b>Random Color.</b> A color is three light levels from 0 to 255. This is where the grab-bag helper class <code>G</code> is born, with a random-number helper and <code>rndColor()</code>. Picking a random color <em>inside</em> paint has an ulterior motive: resize the window and the color flickers, which shows that the operating system, not you, decides when <code>paintComponent</code> runs, and that it runs it often.</li>
+    <li><b>Mouse Input.</b> Override <code>mousePressed</code> to count clicks and the count on screen does not change, because nobody repainted. <code>repaint()</code> is how you ask the OS to call your paint code at its convenience. And the first thing every paint routine should do is clear the screen, because Windows does not do it for you and Macs do (the "Mac vs PC" aside).</li>
+  </ul>
+  <p>All four sections are combined into one demo here. Click in it to bump the counter and note the random color changes on every paint.</p>
+  <div class="demo" data-app="PaintShapes" data-name="PaintShapes" data-note="click to count; every repaint picks a new color"></div>
+  <div class="code" data-src="src/sandbox/PaintShapes.js"></div>
+  <div class="code" data-src="src/graphics/G.js" data-lines="1-30"></div>
+  <div class="java"><b>Java &rarr; JavaScript.</b> Clearing the screen matters here too: a canvas keeps whatever you drew last time. <code>repaint()</code> in the port asks for one paint on the next animation frame, the same "at the OS's convenience" contract as Swing, so the same bug (change state, forget to repaint, see nothing) is reproduced faithfully.</div>
+
+  <h2>Polylines and the homework</h2>
+  <p>A polyline is what you get from dragging a mouse: a sequence of points. Eller adds a static nested class <code>Path</code> that is just an <code>ArrayList&lt;Point&gt;</code> with one method, <code>draw</code>, which connects the dots, and uses it to explain why the loop starts at 1 (there is one fewer segment than points) and why he likes static nested classes (a helper that only its owner uses gets a two-part name like <code>Paint.Path</code>). Press starts a new path, drag adds points, and if you skipped the screen clear you will see every old path pile up on a PC and wonder how one variable holds them all.</p>
+  <p>The day's homework: one path is not a paint program. Add a <code>Pic</code> that is a list of <code>Path</code> and make the mouse code grow it. The spoiler is the last section of the chapter, and it is the demo below.</p>
+  <div class="demo" data-app="Paint" data-name="Paint" data-note="drag to scribble; each press starts a new path"></div>
+  <div class="code" data-src="src/sandbox/Paint.js" data-open="true"></div>
+  <div class="java"><b>Java &rarr; JavaScript.</b> <code>Path</code> and <code>Pic</code> extend <code>Array</code> the way the Java ones extend <code>ArrayList</code>. Every such subclass in this repo declares <code>static get [Symbol.species]() { return Array; }</code>: without it, <code>map</code> and <code>filter</code> would try to construct a new <code>Path</code> and hand it their arguments, which is not what a list subclass wants.</div>
+
+  <div class="pn"><a href="../">&larr; Home</a><a href="02-basic-graphics.html">2. Basic Graphics &rarr;</a></div>
+</main>
+<script type="module" src="../site/nav.js"></script>
+<script type="module" src="../site/lesson.js"></script>
+</body>
+</html>

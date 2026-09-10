@@ -11,9 +11,9 @@ Tests exist to give us **confidence to change code**. They are most valuable whe
 
 Node's built in runner, no dependencies:
 ```bash
-node --test tests/                              # everything
+node --test tests/*.test.js                              # everything
 node --test tests/recognition.test.js           # one file
-node --test --test-name-pattern="undo" tests/   # by name
+node --test --test-name-pattern="undo" tests/*.test.js   # by name
 ```
 Files are `tests/*.test.js`, using `import { test } from 'node:test'` and `node:assert/strict`.
 

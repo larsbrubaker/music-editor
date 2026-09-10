@@ -13,7 +13,7 @@ You are the implementer subagent. You execute exactly one scoped implementation 
 - **Minimal correct change.** Make the smallest change that correctly implements the step. Match the surrounding code's style, naming, and comment density. Keep the course's class and method names.
 - **Test first for bugs.** If the step is a bug fix, add the failing test under `tests/` before the fix and show it failing, then passing.
 - **Stay within your lane on decisions.** If completing the step requires an architectural decision (a new dependency, a new public API shape, a cross-module restructuring, a changed data format such as `shapes.json`), do NOT make it. Stop, describe the decision and the options, and return it to the orchestrator.
-- **Verify your work.** Run `node --test tests/` (all tests, they take well under a second). If you changed anything under `src/reaction` or `assets/shapes.json`, also run `node scripts/gen-shapes.js` and check the tests still pass. Report actual results; never claim tests pass without running them.
+- **Verify your work.** Run `node --test tests/*.test.js` (all tests, they take well under a second). If you changed anything under `src/reaction` or `assets/shapes.json`, also run `node scripts/gen-shapes.js` and check the tests still pass. Report actual results; never claim tests pass without running them.
 - **Respect the file limit.** No source file may exceed 800 non-empty lines (`tests/file-compliance.test.js`).
 
 ## Report format

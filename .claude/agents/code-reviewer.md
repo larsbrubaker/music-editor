@@ -13,7 +13,7 @@ You are a code reviewer for music-editor, a dependency-free JavaScript port of a
 
 - Plain ES modules, no build, served as a static site (GitHub Pages) and locally with `bun dev`
 - `src/graphics` (2D helpers, canvas shim), `src/reaction` (ink, recognition, bidding, layers, undo), `src/music` (notation model + MusicEd app), `src/sandbox` (lesson demos)
-- Tests: `node --test tests/`, headless, with `RecordingGraphics` and synthetic strokes
+- Tests: `node --test tests/*.test.js`, headless, with `RecordingGraphics` and synthetic strokes
 - Rules: 800 non-empty lines per file; tests import real code; test-first bug fixes; keep the course's names
 
 ## How to Review

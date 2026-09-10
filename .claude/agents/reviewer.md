@@ -14,7 +14,7 @@ You are the reviewer subagent. You review a given diff or set of changed files a
 - **JavaScript port hazards** — integer division (`idiv`) where Java used ints; Array subclasses missing `Symbol.species`; static initialization order; `this` inside reaction callbacks (arrow functions capture the owning Mass, methods do not); state that must be reset by `World.reset()`.
 - **Undo safety** — every action must be reproducible by replaying the gesture list: no side effects in `show()`, no randomness in reactions that changes layout.
 - **Edge cases** — empty lists (stems with no heads, beams with one stem), degenerate strokes (a DOT), boundaries at margins, error paths.
-- **Tests** — is there a test for the behavior? Does it test the real module? Does the suite still pass (`node --test tests/`)? Is every file under 800 non-empty lines?
+- **Tests** — is there a test for the behavior? Does it test the real module? Does the suite still pass (`node --test tests/*.test.js`)? Is every file under 800 non-empty lines?
 
 Use `git diff`, Read, Grep, and Glob to inspect the changes and enough surrounding context to judge them. Run read-only checks (the test suite) when the verdict depends on it.
 

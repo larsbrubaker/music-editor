@@ -15,9 +15,9 @@ When a test fails, **understand what went wrong before changing anything.** A fa
 
 ### 1. Run and capture
 ```bash
-node --test tests/                      # everything (< 1s)
+node --test tests/*.test.js                      # everything (< 1s)
 node --test tests/music.test.js         # one file
-node --test --test-name-pattern="beam" tests/   # tests whose name matches
+node --test --test-name-pattern="beam" tests/*.test.js   # tests whose name matches
 ```
 Record the exact assertion, expected vs actual, and the stack.
 

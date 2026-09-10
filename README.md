@@ -14,7 +14,7 @@ for each step, and the finished editor as a static site.
 
 ```bash
 bun dev          # static server with live reload at http://localhost:3000/
-npm test         # node --test tests/  (headless, < 1s)
+npm test         # node --test tests/*.test.js  (headless, < 1s)
 ```
 
 No build step and no dependencies: the site is the repo.

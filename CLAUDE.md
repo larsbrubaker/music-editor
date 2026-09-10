@@ -36,9 +36,9 @@ When a bug is reported, always follow this workflow:
 ## Project Context
 
 - **Language:** JavaScript (ES modules), no build step, no dependencies. Runs directly in the browser and on GitHub Pages.
-- **Runtime for tests:** Node >= 20, built-in `node:test` runner.
+- **Runtime for tests:** Node >= 22, built-in `node:test` runner.
 - **Dev server:** `bun dev` (Bun; `scripts/dev.js` serves the repo and live-reloads on change).
-- **Test:** `npm test` or `node --test tests/`
+- **Test:** `npm test` or `node --test tests/*.test.js`
 - **Shape database:** `node scripts/gen-shapes.js` regenerates `assets/shapes.json` from synthetic strokes through the real pipeline.
 
 ### Project Map

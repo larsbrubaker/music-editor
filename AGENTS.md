@@ -22,7 +22,7 @@ post-change review to a separate, read-only reviewer.
    allowed files, relevant existing changes, constraints, and the evidence needed
    to show the requested behavior works (a failing test first, for a bug).
 3. Have the implementer complete that step and report actual verification results
-   (`node --test tests/`).
+   (`node --test tests/*.test.js`).
 4. Give a separate reviewer the brief, the diff, and the verification results.
    Require an independent trace through the affected behavior, not just "tests pass".
 5. Send actionable findings back to the implementer. Then advance to the next step.

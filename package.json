@@ -6,8 +6,8 @@
   "description": "A gesture based music notation editor in JavaScript, following Marlin Eller's Intermediate Java course.",
   "scripts": {
     "dev": "bun scripts/dev.js",
-    "test": "node --test tests/",
+    "test": "node --test tests/*.test.js",
     "gen-shapes": "node scripts/gen-shapes.js"
   },
-  "engines": { "node": ">=20" }
+  "engines": { "node": ">=22" }
 }

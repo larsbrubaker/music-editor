@@ -1,0 +1,72 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Music Editor - gesture based notation</title>
+<link rel="stylesheet" href="../site/site.css">
+</head>
+<body>
+<header class="top" data-current="app"></header>
+<main>
+  <h1>The Music Editor</h1>
+  <p class="lead">Everything is a gesture. Draw on the page below with a mouse, a pen or a finger. There are no menus: the marks on the page bid for each stroke and the best bid wins. An upward stroke anywhere is undo.</p>
+  <div class="editor">
+    <div class="stage"><canvas id="stage" aria-label="music page"></canvas></div>
+    <aside>
+      <h2>Gestures</h2>
+      <div class="status" id="status">loading shapes…</div>
+      <h3>Actions</h3>
+      <div class="btns">
+        <button id="undo" title="or draw an N-N stroke">Undo</button>
+        <button id="newpage">New page</button>
+        <button id="train" class="primary">Train shapes</button>
+      </div>
+      <h3>Page</h3>
+      <ul class="legend">
+        <li><b>W-W</b><span>first stroke: sets the top staff line. Then, below the first system: add a staff to it</span></li>
+        <li><b>W-E</b><span>right, back left (a retrace) below the last system: add a new system</span></li>
+      </ul>
+      <h3>Bars</h3>
+      <ul class="legend">
+        <li><b>S-S</b><span>top line to bottom line of a staff: barline. On a bar: cycle single, double, fine</span></li>
+        <li><b>S-S</b><span>bottom line of one staff to top line of the next: join the barlines across the gap</span></li>
+        <li><b>DOT</b><span>click left/right of a bar: repeat dots on that side</span></li>
+      </ul>
+      <h3>Notes</h3>
+      <ul class="legend">
+        <li><b>SW-SW</b><span>a short down-left tick on a line or space: note head</span></li>
+        <li><b>S-S</b><span>just right of a head: up stem; just left: down stem; through stemmed heads: unstem</span></li>
+        <li><b>E-E</b><span>across a stem: add a flag; across two stems: beam them; across a beamed group: add a beam</span></li>
+        <li><b>W-W</b><span>across a stem: remove a flag (quarter, half, whole)</span></li>
+        <li><b>DOT</b><span>click after a head: augmentation dot (cycles 0 to 3)</span></li>
+      </ul>
+      <h3>Rests</h3>
+      <ul class="legend">
+        <li><b>W-S</b><span>left then down: quarter rest</span></li>
+        <li><b>E-S</b><span>right then down (a 7): eighth rest</span></li>
+        <li><b>E-E / W-W</b><span>across a rest: more / fewer flags. DOT: dot it</span></li>
+      </ul>
+      <h3>Clefs and keys</h3>
+      <ul class="legend">
+        <li><b>SW-SE</b><span>a &lt; from the top line to the bottom line: G clef</span></li>
+        <li><b>SE-SW</b><span>a &gt; from the top line to the bottom line: F clef</span></li>
+        <li><b>E-E / W-W</b><span>across the left margin: sharps / flats in the key. Across a double bar: key change</span></li>
+      </ul>
+      <h3>Undo</h3>
+      <ul class="legend"><li><b>N-N</b><span>an upward stroke anywhere</span></li></ul>
+      <h3>Shape database</h3>
+      <p>Gestures are recognized against trained prototypes. <b>Train shapes</b> lets you add your own examples (type a name like <code>S-S</code>, draw it a few times, press Enter to save in this browser).</p>
+      <div class="btns">
+        <button id="save">Download shapes.json</button>
+        <button id="load">Load shapes.json…</button>
+        <button id="defaults">Reset to defaults</button>
+        <input id="file" type="file" accept="application/json" hidden>
+      </div>
+    </aside>
+  </div>
+</main>
+<script type="module" src="../site/nav.js"></script>
+<script type="module" src="./app.js"></script>
+</body>
+</html>

@@ -16,11 +16,12 @@ export class PaintInk extends WinApp {
     this.recognized = '';
     this.showDots = false;     // the sub-sampling lesson's debug dots
     this.showBBox = false;     // the bounding box lesson's debug box
+    this.indexSampling = false; // true: the course's sub-sampling by index instead of by arc length
   }
 
   paintComponent(g) {
     G.fillBack(g);
-    PL.showDots = this.showDots; Ink.Buffer.showBBox = this.showBBox;
+    PL.showDots = this.showDots; Ink.Buffer.showBBox = this.showBBox; Ink.Buffer.arcLength = !this.indexSampling;
     g.setColor(Color.RED); Ink.BUFFER.show(g);
     PL.showDots = false; Ink.Buffer.showBBox = false;
     this.inkList.show(g);

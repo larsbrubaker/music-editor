@@ -1,0 +1,49 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Gesture Music Editor - Intermediate Java, in JavaScript</title>
+<link rel="stylesheet" href="site/site.css">
+</head>
+<body>
+<header class="top" data-current="home"></header>
+<main>
+  <div class="hero">
+    <div>
+      <h1>A gesture based music notation editor, built one lesson at a time</h1>
+      <p class="lead">This site follows Marlin Eller's course <a href="https://depts.washington.edu/cprogs/BCS/Books/BCS_MidJava.html">Intermediate Java</a> step by step, in JavaScript. Every lesson has the working program from that point in the course, running in your browser, and the finished editor is the last one.</p>
+      <p><a class="btn" href="app/">Open the editor</a> &nbsp; <a class="btn secondary" href="lessons/01-warm-up.html">Start at lesson 1</a></p>
+    </div>
+    <img src="assets/musicItems.jpg" alt="A page of music notation showing the elements the course builds">
+  </div>
+  <h2 style="border:0;margin-top:10px">The course in eight chapters</h2>
+  <ol class="toc" id="toc"></ol>
+  <h2>What the course is about</h2>
+  <p>Marlin Eller wrote the course to show intermediate programmers what a mid-sized project looks like: not one class but thirty, organized well enough that you can find your way around. The project is a music notation editor with an unusual interface. There are no menus or buttons. You draw a stroke, the stroke is recognized as one of a small set of easy-to-draw <em>compass gestures</em>, and then every mark already on the page gets to <em>bid</em> on that stroke. The closest fit wins and acts. He calls this the Reaction Architecture, and it is really a two dimensional parser.</p>
+  <p>The course was written in Java with Swing. This port keeps the same classes, the same names and the same order of construction, so you can read the original text and this code side by side. Where JavaScript changes something, the lesson says so.</p>
+  <h2>Running it yourself</h2>
+  <pre class="inline">git clone https://github.com/larsbrubaker/music-editor
+cd music-editor
+bun dev        # http://localhost:3000/ with live reload
+npm test       # the headless test suite (node --test)</pre>
+  <p>There is no build step: the repository <em>is</em> the site.</p>
+</main>
+<script type="module" src="site/nav.js"></script>
+<script type="module">
+import { CHAPTERS } from './site/nav.js';
+const blurbs = [
+  'Swing in one file, the graphics Hello World, painting, mouse input and a multi-line Paint program.',
+  'Hit detection, rubberband rectangles, dragging, animation, and the Areas idea that removes if-statements.',
+  'Where the Reaction Architecture came from, the vocabulary, and the compass gestures.',
+  'Ink, bounding boxes, sub-sampling, coordinate transforms, norms, shapes, the trainer and nearest-neighbor recognition.',
+  'Reaction, Layer, Mass, Gesture: the bidding marketplace, a first reaction app, and undo by replay.',
+  'Pages, systems and staffs from hierarchical coordinates; barlines in all their varieties.',
+  'The music font, heads, time, rests, stems and the layout rules, dots, flags, beams, clefs, key signatures.',
+  'Breaking the big file up, the interface between the app and the music package, and splines.',
+];
+document.getElementById('toc').innerHTML = CHAPTERS.map(([slug, name], i) =>
+  `<li><span class="n">CHAPTER ${i + 1}</span><a class="t" href="lessons/${slug}.html">${name}</a><span class="s">${blurbs[i]}</span></li>`).join('');
+</script>
+</body>
+</html>

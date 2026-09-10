@@ -1,0 +1,11 @@
+{
+  "version": "0.0.1",
+  "configurations": [
+    {
+      "name": "music-editor",
+      "runtimeExecutable": "/opt/homebrew/bin/bun",
+      "runtimeArgs": ["scripts/dev.js"],
+      "port": 3000
+    }
+  ]
+}

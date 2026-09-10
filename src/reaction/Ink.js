@@ -56,10 +56,33 @@ export class Buffer extends PL {
   constructor() { super(Buffer.MAX); this.n = 0; this.bbox = new BBox(); }
   add(x, y) { if (this.n < Buffer.MAX) { this.points[this.n++].set(x, y); this.bbox.add(x, y); } }
   clear() { this.n = 0; }
-  // linear sub-sampling: pl gets k points chosen evenly from the n in the buffer
-  subSample(pl) {
+  // Sub-sample the n captured points down to the k points of pl.
+  // The course picks points by index (subSampleByIndex): quick, and fine when the
+  // mouse delivers plenty of samples. Pointer events on a fast flick (or a touch
+  // screen, or an automated test) can deliver only a handful, and then index
+  // sampling piles all k points onto the first sample. So by default this port
+  // resamples by arc length: k points spaced evenly along the drawn path.
+  subSample(pl) { if (Buffer.arcLength) { this.subSampleByArcLength(pl); } else { this.subSampleByIndex(pl); } }
+
+  subSampleByIndex(pl) {
     const k = pl.size(), n = this.n;
     for (let i = 0; i < k; i++) { pl.points[i].set(this.points[idiv(i * (n - 1), k - 1)]); }
+  }
+
+  subSampleByArcLength(pl) {
+    const k = pl.size(), n = this.n, pts = this.points;
+    if (n < 2) { for (let i = 0; i < k; i++) { pl.points[i].set(pts[0]); } return; }
+    const cum = [0]; // cumulative length at each captured point
+    for (let i = 1; i < n; i++) { cum[i] = cum[i - 1] + Math.hypot(pts[i].x - pts[i - 1].x, pts[i].y - pts[i - 1].y); }
+    const total = cum[n - 1];
+    if (total === 0) { for (let i = 0; i < k; i++) { pl.points[i].set(pts[0]); } return; }
+    let j = 1;
+    for (let i = 0; i < k; i++) {
+      const target = total * i / (k - 1);
+      while (j < n - 1 && cum[j] < target) { j++; }
+      const seg = cum[j] - cum[j - 1], t = seg === 0 ? 0 : (target - cum[j - 1]) / seg;
+      pl.points[i].set(Math.round(pts[j - 1].x + (pts[j].x - pts[j - 1].x) * t), Math.round(pts[j - 1].y + (pts[j].y - pts[j - 1].y) * t));
+    }
   }
   show(g) { this.drawN(g, this.n); if (Buffer.showBBox) { this.bbox.draw(g); } }
   hit(x, y) { return true; } // any point COULD go into ink
@@ -68,6 +91,7 @@ export class Buffer extends PL {
   up(x, y) { this.add(x, y); }
 }
 Buffer.showBBox = false; // debug aid from the Bounding Box lesson
+Buffer.arcLength = true; // false: the course's index sub-sampling (see the Subsampling lesson)
 
 export class Ink {
   constructor() {

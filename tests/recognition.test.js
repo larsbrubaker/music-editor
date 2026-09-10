@@ -10,9 +10,15 @@ import { RecordingGraphics } from './helpers/RecordingGraphics.js';
 const shipped = JSON.parse(readFileSync(new URL('../assets/shapes.json', import.meta.url)));
 Shape.DB.mergeJSON(shipped);
 
-test('sub-sampling keeps first and last points and N points', () => {
+test('sub-sampling keeps first and last points and N points (both methods)', () => {
   const pts = []; for (let i = 0; i < 100; i++) { pts.push([i * 3, i * 2]); }
-  const ink = inkFromPoints(pts);
+  Ink.Buffer.arcLength = false; // the course's method
+  let ink = inkFromPoints(pts);
+  assert.equal(ink.norm.size(), UC.normSampleSize);
+  // integer centering (oW/2 truncates) leaves the ends a unit or two inside the box
+  assert.ok(ink.norm.points[0].x <= 3 && ink.norm.points[24].x >= 997);
+  Ink.Buffer.arcLength = true;
+  ink = inkFromPoints(pts);
   assert.equal(ink.norm.size(), UC.normSampleSize);
   assert.deepEqual([ink.vs.loc.x, ink.vs.loc.y, ink.vs.size.x, ink.vs.size.y], [0, 0, 297, 198]);
 });
@@ -101,4 +107,12 @@ test('Trainer types a name, trains it, deletes a prototype and shows', () => {
     assert.equal(Shape.DB.get('Q-Q').prototypes.length, 0);
     type(' '); assert.equal(t.curName, ''); assert.equal(t.curState, Trainer.ILLEGAL);
   } finally { Shape.DB = saved; }
+});
+
+test('a stroke with only a few mouse samples still recognizes (arc-length resampling)', () => {
+  // a fast flick or an automated drag can deliver just down, one move, up
+  assert.equal(Shape.recognize(inkFromPoints([[600, 150], [450, 150], [300, 150]])).name, 'W-W');
+  assert.equal(Shape.recognize(inkFromPoints([[300, 100], [300, 250], [300, 400]])).name, 'S-S');
+  // a V with one sample per leg
+  assert.equal(Shape.recognize(inkFromPoints([[400, 100], [300, 200], [400, 300]])).name, 'SW-SE');
 });

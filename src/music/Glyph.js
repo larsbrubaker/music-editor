@@ -67,8 +67,11 @@ Glyph.REST_2F = new Glyph(61503, 16, 0, 6);
 Glyph.REST_3F = new Glyph(61504, 16, 0, 4);
 Glyph.REST_4F = new Glyph(61505, 16, 0, 4);
 
-// Accidentals. The course uses these but never lists their codes; these were found
-// by rendering the font (see the GlyphSheet demo) and may need adjusting.
-Glyph.SHARP = new Glyph(61475, 16, 0, 5);
-Glyph.FLAT = new Glyph(61538, 16, 0, 5);
-Glyph.NATURAL = new Glyph(61550, 16, 0, 5);
+// Accidentals. The course uses these but never lists their codes; they were found by
+// rendering the font (the GlyphSheet demo): 61511 natural, 61512 flat, 61513 sharp
+// (61514/61515 are the double flat and double sharp). dy centers the sign on its
+// line: the sharp and the natural by their middle, the flat by its loop, which is
+// why the flat's dy is fractional (JavaScript lets us, the course's int could not).
+Glyph.SHARP = new Glyph(61513, 16, 0, 5);
+Glyph.FLAT = new Glyph(61512, 16, 0, 4.5);
+Glyph.NATURAL = new Glyph(61511, 16, 0, 5);

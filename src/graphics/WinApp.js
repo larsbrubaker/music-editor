@@ -36,7 +36,10 @@ export class WinApp {
     this.dpr = dpr;
     const on = (type, fn, target = canvas) => { target.addEventListener(type, fn); this.listeners.push([target, type, fn]); };
     on('pointerdown', (e) => {
-      canvas.focus(); canvas.setPointerCapture(e.pointerId); this.mouseDown = true;
+      canvas.focus(); this.mouseDown = true;
+      // The pointer can already be gone by the time we run (a fast tap, or a synthetic
+      // event from a test), in which case capturing it throws; the stroke still counts.
+      try { canvas.setPointerCapture(e.pointerId); } catch (err) { /* nothing to capture */ }
       this.mousePressed(this.toMouseEvent(e)); this.repaint(); e.preventDefault();
     });
     on('pointermove', (e) => {

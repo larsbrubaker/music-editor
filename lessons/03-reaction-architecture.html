@@ -1,0 +1,107 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>3. Reaction Architecture - Gesture Music Editor</title>
+<link rel="stylesheet" href="../site/site.css">
+</head>
+<body>
+<header class="top" data-current="03-reaction-architecture"></header>
+<main>
+  <p class="kicker">Chapter 3</p>
+  <h1>Reaction Architecture</h1>
+  <p class="lead">No code to type in this chapter. Where the project is going and why: twenty-five years of wanting to parse diagrams, the bidding idea that finally made it work, the vocabulary of the framework, and the two design rules that make a gesture app usable - pick shapes that cannot be confused, and never break undo.</p>
+  <p class="orig">Follows the chapter <em>Reaction Architecture</em> of Marlin Eller's <a href="https://depts.washington.edu/cprogs/BCS/Books/BCS_MidJava.html">Intermediate Java</a> (sections History, Reactions, Vocabulary, Recognition, Compass Gestures and The Necessity of Undo). The original is narrative rather than code; this page follows the same arc and points at the classes in this port that ended up filling each role.</p>
+
+  <h2>Why a chapter with no code <span class="day">Day 4</span></h2>
+  <p>Up to now the course has been bottom-up: here is a helper, here is another helper, look what you can do with them. That works until the helpers stop being obviously useful on their own. The <code>I.Area</code> idea at the end of the last chapter was the first one that existed purely to control complexity that has not arrived yet, and the classes that come next are more of the same. So Eller stops and describes the destination first, on the theory that you will understand <em>why</em> a helper exists if you know what it is going to help with.</p>
+  <p>The destination is a framework, not an application. In an early design it had twenty-eight classes, and his point about that number is not that it is big but that it is <em>ordinary</em>: classes are filing cabinets, and a system large enough that you would be lost without the filing is exactly the system worth studying. The music notation is only there to give the framework something real to be tested against.</p>
+
+  <h2>Gesture applications, and 2D parsing</h2>
+  <p>The history is worth reading in the original, so here is only the shape of it. In 1990 Eller ran a group at Microsoft building software for tablet machines - keyboard-less, stylus-driven machines that essentially nobody was making yet, and whose predicted market never showed up. Thinking about what applications would have to become on such a machine, he named an idea he had no notion how to build: <b>2D parsing</b>.</p>
+  <p>The observation behind the name is that a lot of interesting notations are two dimensional and awful to type: music, mathematics, circuit diagrams, flow charts, chemistry, floor plans. All of them are easy to scribble on a napkin. Parsing, in a compiler, is the step where you look at a one dimensional stream of characters and decide that this run is a variable name and that one is an assignment. A diagram has no such convenient order. Yes, the strokes arrive in the order the user drew them, but the structure of the drawing usually has nothing to do with that order - you can draw one box, then another somewhere else, and connect them ten minutes later.</p>
+  <p>The idea sat unused for about fifteen years, until a company with a sheet-music tablet gave him an excuse to try again. Two years of discarded experiments ended with one clean idea in 2005, after which the whole demo was rebuilt from scratch in about three weeks. It could not open or save a file, but you could enter fairly complicated notation with nothing but gestures. Then that company lost interest too. The iPad shipped five years later; another decade after that, still nobody had published a way to do this, so he wrote it up as a course.</p>
+
+  <h2>The problem of context</h2>
+  <p>Here is the whole difficulty in one example. You draw a vertical line. In music that could be an up stem, a down stem, or a barline. A horizontal line could be a staff line, a ledger line, a beam, a tie, or a hyphen in the lyrics. Nothing about the stroke itself decides which; what decides is <b>context</b>. A vertical line that runs from the top line of a staff to the bottom line is almost certainly a barline. A vertical line just to the right of a note head that has no stem is almost certainly a stem.</p>
+  <p>The trouble is that "from the top line to the bottom line" is never exact, "just to the right" has no definition, and both readings can be plausible at once. The answer that makes the architecture work is to stop asking yes-or-no questions. Every candidate interpretation instead answers <em>how close</em> the stroke came to being a perfect example of itself: a distance function, a metric. Zero is a perfect match, small numbers are near misses, big numbers are poor fits, and one agreed-upon huge number means "not interested at all". Then competing interpretations are simply compared. A barline reading at 17 beats a stem reading at 29, and the barline wins the stroke.</p>
+  <p>That single idea - measure context with a distance, let the lowest number win - is the heart of the reaction architecture. In this port that huge number is <code>UC.noBid</code>, and it is 10000.</p>
+
+  <h2>The reaction vocabulary</h2>
+  <p>With the music example set aside, the same story in the framework's own nouns:</p>
+  <ul>
+    <li>Everything visible on the screen is a <b>Mass</b>. The name is deliberate: Eller pictures the things on the page as planetary masses with gravity, contexts that pull at the user's ink, and the nearer your stroke passes one the more likely it is to be captured by it.</li>
+    <li>What the user draws in one press-drag-release is a <b>Gesture</b>. It may be near nothing, it may belong to one mass, it may connect two masses, it may be a click on a button.</li>
+    <li>The gesture is recognized into a <b>Shape</b> - the abstract identity of the mark, like "the letter a" or "S-S".</li>
+    <li>Each Mass owns a private list of <b>Reactions</b>. A Reaction is nothing but a <code>bid</code> and an <code>act</code>: bid looks at the incoming gesture and returns its distance, and act does whatever the winner is entitled to do - usually create a new Mass or modify the one that owned the reaction.</li>
+  </ul>
+  <p>The comparison with ordinary parsing is exact and clarifying. A text parser is in one state, a character arrives, and one transition fires. Here the "state" is everything currently on the screen, and the transitions are the cloud of reactions those masses are holding, waiting invisibly in the background. The one difference is that in a text parser there is a single transition for the letter 'a'; here several reactions may be watching for the same shape, so they bid, and at most one of them fires.</p>
+  <div class="code" data-src="src/reaction/Reaction.js"></div>
+
+  <h2>Vocabulary: the classes and what they became here</h2>
+  <h3>Interfaces - I.Act, I.React, I.Show, I.Area</h3>
+  <p>The Java is four one-line interfaces in a holder class called <code>I</code>: <code>Act</code> has <code>act()</code>, <code>React</code> adds <code>bid(Gesture)</code>, <code>Show</code> has <code>show(Graphics)</code>, and <code>Area</code> is the mouse-listener quartet <code>hit/dn/drag/up</code> from the previous chapter. Eller even leaves <code>React</code> commented out in the file, because it names a class that does not exist yet.</p>
+  <div class="java"><b>Java &rarr; JavaScript.</b> There is no <code>interface</code> keyword, so this port has no <code>I</code> file at all: the four interfaces survive as conventions, and the comments in the source name them where they apply. An I.Area is any object with <code>hit/dn/drag/up</code> - <code>Gesture.AREA</code> is a plain object literal, and <code>Ink.Buffer</code> and <code>Shape.TRAINER</code> are areas simply by having those four methods. An I.Show is anything with <code>show(g)</code>. I.React is the pair of arrow functions you hand to the <code>Reaction</code> constructor; Java used an anonymous subclass and <code>Box.this</code> to reach the owning mass, and an arrow function closes over the owner for free.</div>
+  <h3>Output - Mass and Layer</h3>
+  <p>Almost all of the output side of a real application is application-specific: beams, stems, heads, accidentals, clefs, ledgers, ties, slurs. Every one of those gets its own class in the music package, and every one of them descends from <code>Mass</code>, because every one of them draws itself and holds a cloud of reactions. Mass is abstract precisely because a mass with nothing added has no idea what to draw; what it contributes is the bookkeeping of the reaction list, which none of the music classes should have to write again.</p>
+  <p>The other framework-level output idea is <code>Layer</code>: the painter's algorithm, also called z-ordering. Paint the background first and the foreground last. Two layers are rarely enough - the original music app used four or five, roughly staff lines in grey at the back, notes on top of them, editorial marks like ties and hairpins above that, then the user's own scribbling, and finally handles and buttons in front of everything. That last layer matters more than it sounds: the button that deletes a scribble must not end up buried under the scribble.</p>
+  <div class="code" data-src="src/reaction/Mass.js"></div>
+  <div class="code" data-src="src/reaction/Layer.js"></div>
+  <div class="java"><b>Java &rarr; JavaScript.</b> Two small ports' notes. Java had to override <code>equals</code> and <code>hashCode</code> so that removing a mass from a list used identity; JavaScript arrays already compare by reference, so that fix is gone. And static initialization order is real here too: <code>Layer.byName</code> must be created before <code>Layer.ALL</code>, because the constructor that makes ALL writes into byName. The editor in this port uses three layers, <code>BACK</code>, <code>NOTE</code> and <code>FORE</code>, created by <code>MusicEd.newPage()</code>.</div>
+  <h3>App level - MusicEd, WinApp, Area, Undo</h3>
+  <p>The application itself is thin: <code>MusicEd</code> owns the undo stack, the masses and the areas; <code>WinApp</code> is the window-system chore work; areas are the mouse listeners, of which you may want more than one kind; and <code>Undo</code> is a list of things that can be re-performed, so that you can rebuild the entire world by replaying it.</p>
+  <div class="java"><b>Java &rarr; JavaScript.</b> In this port there is no separate <code>Undo</code> class. Its job is done by <code>Gesture.UNDO</code>, a <code>Gesture.List</code>, and undo is literally "drop the last gesture, nuke the layers and the reaction map, replay what is left". <code>MusicEd</code> keeps only two areas and switches between them: <code>Gesture.AREA</code> for editing and <code>Shape.TRAINER</code> for teaching the recognizer a new shape.</div>
+  <h3>Shape recognition - PL, BBox, Norm, Shape, Gesture</h3>
+  <p><code>PL</code> is a polyline, the raw sequence of points from mouse down to mouse up. <code>BBox</code> tracks its bounds. <code>Norm</code> is that polyline reduced to a normalized coordinate system so that two strokes can be compared at all. A <code>Shape</code> is the idea of a mark, and since there is more than one way to draw any mark it holds a list of <code>Prototype</code>s. A <code>Gesture</code> is a shape plus the rectangle where it happened: shapes are theoretical, gestures are located. Eller's analogy is thinking of the number 7 versus wanting a 7 written <em>right there</em> in 12 point type.</p>
+  <p>One deliberate limitation: this system recognizes gestures into shapes, not characters. A character like 'x' takes two strokes, and nothing here makes multi-stroke recognition easy. You could do it - recognize a '\', make a mass for it, give that mass a reaction watching for a '/' that crosses it and upgrades the pair to an 'x' - but handwriting was never the target.</p>
+  <div class="code" data-src="src/reaction/Gesture.js"></div>
+
+  <h2>How recognition works</h2>
+  <p>A gesture is one mouse drag. Capture points from the press, through the drag, to the release. Sub-sample that polyline to a fixed number of points - 25 here, <code>UC.normSampleSize</code> - and scale it isomorphically (x and y by the same factor) into a fixed box, 0 to 1000. Now any two strokes are two lists of 25 comparable points, and the "distance" between them is the root sum of squared differences. Since the distance is only ever used for comparison, the square root is skipped: if A &lt; B then root(A) &lt; root(B).</p>
+  <p>That makes recognition <b>nearest neighbor matching</b>. Every prototype in the database belongs to some shape; find the prototype closest to the input, and the input is classified as that prototype's shape. If nothing is closer than <code>UC.noMatchDist</code>, nothing was recognized. The flow for one stroke:</p>
+  <ol>
+    <li><code>Ink.BUFFER</code> collects the raw points from press to release.</li>
+    <li>Its <code>bbox</code> records where on the screen that happened.</li>
+    <li>A <code>Norm</code> sub-samples the buffer to 25 points and scales them into the 0..1000 box.</li>
+    <li><code>Shape.recognize</code> walks the shape database for the closest prototype.</li>
+    <li>The recognized shape plus the bounding box becomes a <code>Gesture</code>.</li>
+    <li>Reactions are indexed by the shape they want, so <code>Reaction.byShape</code> hands back just the reactions watching for this one.</li>
+    <li>Each of those bids; the lowest bid wins.</li>
+    <li>The winner's <code>act</code> runs.</li>
+    <li>The gesture goes on the undo stack.</li>
+  </ol>
+  <div class="java"><b>Java &rarr; JavaScript.</b> One real deviation, and it is a bug fix rather than a translation. The course sub-samples by index, picking every n-th captured point, which is fine when a mouse delivers hundreds of samples. Pointer events on a fast flick, on a touch screen, or from an automated test can deliver five, and index sampling then piles all 25 output points onto the first sample and recognizes nothing. This port resamples by arc length instead - 25 points spaced evenly along the drawn path - and keeps the course's version as <code>Ink.Buffer.subSampleByIndex</code> behind the <code>arcLength</code> flag. The DOT is not matched by prototype at all: a stroke smaller than <code>UC.dotThreshold</code> in both directions is a DOT before any comparison happens, which is what makes a tap reliable.</div>
+
+  <h2>Compass gestures</h2>
+  <p>Eller's most useful lesson from the handwriting work at Microsoft is a lesson about people, not algorithms. When a user hits the wrong key they blame themselves. When a recognizer gets a letter wrong they blame the recognizer - always, and bitterly. Add an intelligent agent to the transaction and every error becomes the machine's fault. A UI designer's job is to build inside that fact rather than argue with it.</p>
+  <p>The practical response is to choose an alphabet of marks that are easy to draw and hard to confuse. That set is the <b>compass gestures</b>, and it has three parts: circles (big ones are O, tiny ones are DOT), straight lines in one of the eight compass directions, and idealized V shapes - one straight leg in some compass direction followed immediately by another leg in a second direction. So 'V' as normally drawn is SE-NE, drawn backwards it is SW-NW, a greater-than sign from the top down is SE-SW, and an 'L' is S-E. For uniform names, a single straight line is written as a V whose two directions happen to agree: a line drawn upwards is <b>N-N</b>.</p>
+  <p>Direction is part of the identity. N-N and S-S look identical on the page and are entirely different gestures, because the computer knows which way the pen travelled. Eight directions times eight gives 64 V shapes, plus the dot and the circle: a vocabulary of <b>66 distinguishable shapes</b>. Nothing in the recognizer requires them - train prototypes for 'a' and 'e' and it will match those too - but this set buys accuracy, and it buys names that you can say out loud to a user. "C" would need a follow-up question; "SE-SW" would not.</p>
+  <p>They are not magic. An 'L' can be drawn with equal legs, with a long down stroke and a short east one, or with a short down and a long east - and that last one starts to look like E-E with a hook on the front. If your users train the system with all the variance they actually draw, they will erode the boundary with the genuine E-E. Knowing what you are asking the recognizer to do is part of using it well.</p>
+  <p>The finished editor uses only a corner of the vocabulary. The shipped database, <code>assets/shapes.json</code>, holds eleven shapes; every one of them means several things, and which meaning applies is settled entirely by the bidding. Try them in <a href="../app/">the app</a>.</p>
+  <table class="g">
+    <tr><th>Gesture</th><th>Drawn as</th><th>What the editor does with it</th></tr>
+    <tr><td>W-W</td><td>right to left</td><td>the very first stroke sets the top staff line; below the last system it adds a staff; across a stem or a rest it removes a flag; across the left margin it adds flats</td></tr>
+    <tr><td>W-E</td><td>left, then back right (a retrace)</td><td>below the last system: start a new system</td></tr>
+    <tr><td>S-S</td><td>downward</td><td>top line to bottom line: a barline, or cycle an existing bar single / double / fine; across the gap between staves: join the barlines; right of a head: up stem; left of a head: down stem; through stemmed heads: unstem</td></tr>
+    <tr><td>SW-SW</td><td>a short down-left tick</td><td>on a line or a space: a note head</td></tr>
+    <tr><td>E-E</td><td>left to right</td><td>across a stem: a flag; across two stems: beam them; across a beamed group: another beam; across a rest: another flag; across the left margin: sharps in the key; across a double bar: a key change</td></tr>
+    <tr><td>W-S</td><td>left, then down</td><td>a quarter rest</td></tr>
+    <tr><td>E-S</td><td>right, then down (a 7)</td><td>an eighth rest</td></tr>
+    <tr><td>SW-SE</td><td>a &lt; from the top line to the bottom line</td><td>G clef</td></tr>
+    <tr><td>SE-SW</td><td>a &gt; from the top line to the bottom line</td><td>F clef</td></tr>
+    <tr><td>DOT</td><td>a tap</td><td>beside a bar: repeat dots; after a head or a rest: augmentation dots, cycling 0 to 3</td></tr>
+    <tr><td>N-N</td><td>upward, anywhere</td><td>undo, and nothing else, ever</td></tr>
+  </table>
+
+  <h2>The necessity of undo</h2>
+  <p>No recognizer is ever perfect. On top of the user's own mistakes, which are rare, there will be recognition mistakes, which a good design also makes rare but which are far more infuriating when they happen. Both kinds have to be trivially reversible. This is not a peculiarity of gesture systems; the second most used key on a keyboard, after the space bar, is backspace.</p>
+  <p>What <em>is</em> peculiar to a gesture system is that the undo command is itself a gesture, and so it too can be misrecognized. Eller's advice is emphatic: pick one unambiguous, easy shape, reserve it exclusively for undo, and never let anything else bid for it. His choice is <b>N-N</b>, a single upward stroke anywhere on the screen, and he recommends it for any such system - pushing a pen upward is an unnatural motion for right- and left-handers alike, which is exactly why it collides with nothing else you might want to write.</p>
+  <p>This port takes that literally. <code>Gesture.undoShapeName</code> is <code>'N-N'</code>, and <code>Gesture.AREA.up</code> checks for it <em>before</em> any auction is held, so no reaction can ever outbid undo. The mechanism itself is the reason the framework is built the way it is: undo does not reverse anything. It pops the last gesture off <code>Gesture.UNDO</code>, calls <code>Layer.nuke()</code> to throw away every mass and <code>Reaction.nuke()</code> to reset the marketplace to the initial reactions, and replays the remaining gestures from nothing. The world is a pure function of the list of gestures, which is why acts are allowed to be as complicated as they like.</p>
+
+  <div class="pn"><a href="02-basic-graphics.html">&larr; 2. Basic Graphics</a><a href="04-recognition.html">4. Recognition &rarr;</a></div>
+</main>
+<script type="module" src="../site/nav.js"></script>
+<script type="module" src="../site/lesson.js"></script>
+</body>
+</html>

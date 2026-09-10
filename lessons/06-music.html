@@ -1,0 +1,103 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>6. Music - Gesture Music Editor</title>
+<link rel="stylesheet" href="../site/site.css">
+</head>
+<body>
+<header class="top" data-current="06-music"></header>
+<main>
+  <p class="kicker">Chapter 6</p>
+  <h1>Music</h1>
+  <p class="lead">Enough music notation to know what we are drawing, and then the first sprint of the editor: the classes that hold the coordinate systems. A page, its systems, their staffs and the barlines that cut through them, all built out of four gestures.</p>
+  <p class="orig">Follows the chapter <em>Music</em> of Marlin Eller's <a href="https://depts.washington.edu/cprogs/BCS/Books/BCS_MidJava.html">Intermediate Java</a> (sections Overview through Barlines, plus the Java listings at the end). The reaction framework from chapters 3 to 5 is finished; from here on everything new knows what a staff is.</p>
+
+  <h2>What is on a page of music</h2>
+  <p>The target is a subset of Common Practice Music Notation. Eller is blunt about why it is a subset: the whole point of the project is to find out whether gesture recognition is a decent way to enter music, so anything with no interesting user interface gets cut. There is no file saving, no printing, and no multi-page score, because typing a file name teaches nothing. What is left is the part where a blank page turns into something that looks like real music in a few strokes.</p>
+  <p>That also sets the order in which things get built: bottom up, one visible feature at a time, chosen for maximum visibility rather than for the tidiest design. This is research code. It is expected to be ripped out and redone.</p>
+  <img src="../assets/musicItems.jpg" alt="A page of piano music with the staffs, clefs, key and time signatures, note heads, stems, beams, rests, slurs and barlines that the chapter names" style="max-width: 100%; border: 1px solid #e2e3e8; border-radius: 6px; background: #fff;">
+  <p>Most students arrive knowing no notation at all, so the chapter opens with a vocabulary list. These are the words that become class names:</p>
+  <table class="g">
+    <tr><th>Staff</th><td>The group of lines the notes sit on. Five is normal, but guitar tablature uses six and a drum part may use one, so the line count is a setting, not a constant. Height on the staff means pitch.</td></tr>
+    <tr><th>Sys</th><td>A system: the staffs that are played at the same time, stacked and read together. A piano needs two, a string quartet four. The course shortens the word because <code>System</code> is taken.</td></tr>
+    <tr><th>Bar</th><td>A barline: the vertical rule between measures. It may be a single thin line, a double (announcing a key or time change), a <em>fine</em> (thin plus fat, the end), or a repeat, which adds dots and small wings.</td></tr>
+    <tr><th>Clef, Key, Time</th><td>The three reminders drawn at the start of every staff: how high the pitches are, which notes are altered, and how many beats fill a measure. All three may also change in the middle of the music.</td></tr>
+    <tr><th>Head, Stem, Flag, Beam</th><td>A head is the ellipse, filled or hollow. A stem is the bar attached to it. Flags on the stem halve the duration each time; a beam is the same information shared across several stems, drawn straight instead of curved.</td></tr>
+    <tr><th>Rest, Augmentation dot</th><td>A rest is duration with no pitch. A dot after a head or a rest adds half of its own value again, so a dotted half note is three beats.</td></tr>
+  </table>
+  <p>The rest of the vocabulary (accents, trills, dynamics, crescendos, slurs, ties, staccato dots, ledger lines, octave shifts, tablature) is named and then set aside. Ties and slurs are worth remembering as a pair: graphically identical, musically unrelated, one meaning "play smoothly through these notes" and the other "these two notes are one longer note".</p>
+
+  <h2>Layout rules that shape the classes</h2>
+  <p>Notation has more layout rules than anyone wants to list, but a couple of them decide how the data is arranged, so they come up front.</p>
+  <p>Augmentation dots could be their own class pointing at the head they modify. They are not, and not even a field on the head: every head sharing a stem must have the same duration, and the dots have to be placed in the spaces rather than on the lines, which means you have to look at the whole cluster of heads at once. So the dot count is one integer on the <code>Stem</code>. That decision is made in this chapter and paid off in the next one.</p>
+  <p>The other rule is that notes sounding together must line up vertically, and notes that do <em>not</em> sound together must clearly not line up. That is really a statement about x values, so there will be a <code>Time</code> class that is essentially a shared x, and adding a head means deciding whether the gesture landed close enough to an existing <code>Time</code> to join it or far enough away to make a new one. Also next chapter.</p>
+
+  <h2>MusicEd and the first gestures</h2>
+  <p>The app is another <code>WinApp</code>, like the one that tested the reactions, with one addition: it can switch between editing music and training shapes. A flag picks which of the two is drawn, and a single field, <code>curArea</code>, holds whichever <code>I.Area</code> the mouse should be feeding, either <code>Gesture.AREA</code> or <code>Shape.TRAINER</code>. The mouse handlers never learn which mode they are in.</p>
+  <p>Toggling modes cannot be a gesture, because the trainer does not do gestures. Eller's answer is a spot on the screen that means nothing to either mode: a mouse up in the top right corner. The trainer already ignores clicks up there, and no music gesture is a dot in the corner, so the corner is free.</p>
+  <p>Now the interesting part. On a blank page there are no <code>Mass</code> objects, so there is nothing holding a reaction, so nothing can happen. The app supplies one <b>initial reaction</b>: a W-W (a stroke drawn right to left) whose bid always wins because nothing else is bidding, and whose action creates the <code>Page</code> at that y and then disables itself. There is exactly one page, so the reaction that makes pages retires after one use.</p>
+  <p>That first stroke defines the top margin, and along the way it has to build a <code>Staff.Fmt</code>, a <code>Staff</code>, and a <code>Sys</code> to put the staff in, because from the user's side "draw a line on a blank page" has to produce a visible staff. From then on the <em>page</em> owns the reactions: another W-W lower down adds a staff to the first system, and a W-E (draw left, then retrace back to the right) says the first system is finished and adds a second system below it. Two gestures, three reactions, because the first W-W and the later ones are different jobs done by different objects.</p>
+  <p>The choice of W-W over the other horizontal strokes is not deep. Any of E-E, W-W, E-W or W-E would work; what matters is how the whole set of gestures balances once there are dozens of them, and swapping one for another later is easy.</p>
+  <div class="demo" data-app="MusicEd" data-name="MusicEd" data-note="draw W-W right-to-left for the top staff line, another lower for a 2nd staff, W-E (left then back right) for a 2nd system, S-S down a staff for a barline; N-N upward undoes"></div>
+  <div class="code" data-src="src/music/MusicEd.js" data-open="true"></div>
+  <div class="java"><b>Java &rarr; JavaScript.</b> The course keeps <code>training</code>, <code>curArea</code> and <code>PAGE</code> in statics with a <code>main</code> that launches one window. Here they are instance fields, because a lesson page may mount and unmount several apps in one document, and <code>newPage()</code> does the resetting that restarting the JVM used to do. <code>PAGE</code> is also a getter rather than a plain field: undo works by replaying the surviving gestures from nothing, so after undoing the very first stroke the old <code>Page</code> object is still referenced but is no longer in any layer, and the getter reports null for it instead of handing back a page that is not on screen.</div>
+
+  <h2>Hierarchical coordinates</h2>
+  <p>Before the classes, one more helper in <code>G</code>. Positions in a layout are usually offsets from something else: lines of text are offsets down from the previous line, words are offsets right from the previous word. You can either solve the whole layout once and store absolute coordinates in every element, or you can store the relationships and compute the absolute value at drawing time.</p>
+  <p>The second way costs a little time and space and buys something specific: change one parent value and everything hanging off it moves. Drag a system down the page and its staffs, and every system below it, follow for free. The editor never actually does that, but the y values of <code>Page</code>, <code>Sys</code> and <code>Staff</code> are built this way so that it could.</p>
+  <p>The class is four lines. A coordinate has a <code>dad</code> and a delta <code>dv</code> from dad, and its value is the sum of the deltas up the chain.</p>
+  <div class="code" data-src="src/graphics/G.js" data-lines="137-146" data-open="true"></div>
+  <div class="java"><b>Java &rarr; JavaScript.</b> The course writes <code>v()</code> as <code>dad == ZERO ? 0 : dad.v()+dv</code>, which drops the last delta and would pin the page top at y=0. The intent is plainly to sum all the way down with <code>ZERO</code> contributing nothing, so the port returns <code>dad.v() + dv</code> and lets <code>ZERO</code> (whose dad is null and whose dv is 0) terminate the recursion. The comment in <code>G.js</code> says so at the code.</div>
+
+  <h2>Staff, Sys and Page</h2>
+  <p>A <code>Staff</code> knows which <code>Sys</code> it is in, its index in that system, its top as an <code>HC</code>, and its format. The format is a small shared class holding the line count and <code>H</code>, which is <em>half</em> the gap between two staff lines, not the whole gap: heads land on lines and in spaces alike, so counting in half-spaces makes line 0 the top line, line 1 the first space, line 2 the second line, and so on. <code>yOfLine</code>, <code>yTop</code> and <code>yBot</code> all fall out of that.</p>
+  <p>The <code>iStaff</code> index is a pattern worth naming: when an object lives on exactly one list, giving it the index of its own slot lets it find its neighbours without searching. A staff uses it to reach the staff below it; a <code>Sys</code> keeps <code>iSys</code> for the same reason.</p>
+  <p><code>Staff.List</code> is a list with an extra field, <code>sysTop</code>, and that field is where a system's y value actually lives. Every staff hangs its <code>HC</code> off it, so the system's top is the parent of all of its staffs. <code>Sys.yTop()</code> just reads it back out.</p>
+  <p>The <code>Sys</code> constructor does one of two things depending on <code>iSys</code>. The first system on the page gets a brand new staff so that it is not empty; every later system is a clone, copying each staff of the first system with the same format and the same offset from its own system top. <code>Page</code> holds the margins, the <code>pageTop</code> that is dad to every system, and the list of systems. Its <code>show</code> does nothing but set the color to black, which works because the page is the first thing in the BACK layer and so paints before every staff and system that would otherwise inherit the blue of the gesture ink.</p>
+  <div class="code" data-src="src/music/Staff.js"></div>
+  <div class="code" data-src="src/music/Sys.js"></div>
+  <div class="code" data-src="src/music/Page.js"></div>
+  <p>The two page reactions are where the bids start doing real work. Adding a staff is only legal while there is exactly one system (after that the format is settled), and only if the stroke is at least <code>UC.minStaffGap</code> below the bottom of the existing system, so you cannot draw staffs on top of each other. Adding a system needs <code>UC.minSysGap</code> below the last one. The second system is also the one that defines <code>sysGap</code>: where you put it becomes the spacing for every system after it.</p>
+  <div class="code" data-src="src/graphics/UC.js" data-lines="18-28"></div>
+  <p>Eller's instruction here is to go and play with it: draw a staff as close as the constant allows and ask yourself whether that felt good. With three reactions the bids barely matter; with three hundred, the bids <em>are</em> the behavior of the application.</p>
+
+  <h2>Barlines <span class="day">Day 11</span></h2>
+  <p>A barline starts out as the simplest class in the project: a system and an x, drawn as a line down every staff of that system. Note the split of responsibility, because it stays this way. The <em>gesture</em> is an S-S drawn from the top line of one staff to the bottom line of that same staff, so the reaction belongs to a <code>Staff</code>; but the <em>object</em> spans the whole system, so it belongs to a <code>Sys</code>.</p>
+  <p>The bid rejects strokes outside the margins and otherwise returns the total error, the distance from the start of the stroke to the staff's top line plus the distance from its end to the bottom line, rejecting anything over 30. A smaller bid wins, so the closer you drew to the actual lines the more the reaction wants it.</p>
+  <p>Testing that immediately turned up a problem: the most useful place to put a barline is exactly on the right margin, but a stroke on the margin is easy to miss and a stroke past it gets rejected. Snapping is not free, it has to be built. So the bid was relaxed to allow <code>UC.barToMarginSnap</code> past the right margin, and the <code>Bar</code> constructor moves any x within that distance onto the margin exactly.</p>
+  <div class="java"><b>Java &rarr; JavaScript.</b> The chapter pauses here for a warning about Swing's two threads: a <code>Mass</code> adds itself to a layer inside <code>super()</code>, so the paint thread can in principle draw an object whose constructor has not finished filling in its fields. Eller's chosen fix is to ignore it, and he says so on purpose, so that you know the code has a known flaw in it. In the browser there is only one thread; <code>repaint()</code> schedules a paint for the next animation frame, after the current call stack has run to completion. The race cannot happen here, and the corresponding null checks in this port are there for undo, not for threads.</div>
+
+  <h3>Bar types, and a reaction that outbids another</h3>
+  <p>The type is one integer with bits in it. Values 0, 1 and 2 are the plain shapes, and two more bits turn any of them into a repeat with dots on that side.</p>
+  <table class="g">
+    <tr><th>0</th><td>single: one thin line</td></tr>
+    <tr><th>1</th><td>double: two thin lines, the announcement of a key or time change</td></tr>
+    <tr><th>2</th><td>fine: a fat line with a thin one to its left, the end of the piece</td></tr>
+    <tr><th>| LEFT (8), | RIGHT (4)</th><td>repeat: a fat line plus a thin line, wings and dots on the marked side or on both</td></tr>
+  </table>
+  <p>Measures need room between them, so drawing an S-S on top of an existing bar should not make a second bar; it should cycle the one that is there. That reaction lives on the <code>Bar</code> and bids the distance from the stroke to its own x, having already rejected anything further away than <code>barToMarginSnap</code>. So its worst possible bid is <code>barToMarginSnap</code> itself, and biasing the staff's create-a-bar bid up by exactly that amount guarantees the cycle reaction always underbids the create reaction. Two reactions on the same shape, and the constant that separates them is the one number they share.</p>
+  <p>The dots that mark a repeat get their own reaction <span class="day">Day 12</span>: a DOT near a bar and inside the system toggles the repeat on whichever side of the bar you dotted. The fat line always hangs to the <em>left</em> of the bar's x, so a fine bar sitting on the right margin ends the staff exactly.</p>
+  <p>Drawing the fat bars needs a line spacing, and a system may hold staffs of different sizes, so the page keeps <code>maxH</code>, the largest <code>H</code> of any staff format, updated everywhere a staff is added.</p>
+
+  <h3>barContinues, and the Oops</h3>
+  <p>Barlines always cross every staff, but whether they also cross the <em>gaps</em> between staffs depends on the instrument: a piano's barlines run unbroken from the right hand down through the left, while an orchestral score breaks the line between sections. So a <code>boolean barContinues</code> goes into <code>Staff.Fmt</code>, set by yet another S-S reaction on the staff, this one drawn from the bottom line of one staff to the top line of the next.</p>
+  <p>Adding that field exposed a design bug that had been sitting there since the Staff class was written. Every staff had been handed the one shared <code>Fmt.DEFAULT</code> object, which was fine while nothing ever changed a format. The moment formats become editable, the sharing has to be exactly right: the third staff of every system should share one format, so joining the barlines in the piano part joins them in every system, but the staffs <em>within</em> a system must have different formats from each other. The fix is small; the constructor takes a <code>Fmt</code>, <code>addNewStaff</code> passes a new one, and <code>copy</code> passes the original along to the clone.</p>
+  <div class="code" data-src="src/music/Staff.js" data-lines="139-152" data-open="true"></div>
+  <p>Now the drawing gets interesting. With <code>barContinues</code> the bar is a run of <em>connected components</em>: walk the staffs, remember where the current component started, and each time you reach a staff whose format does not continue, draw the lines from the remembered top to this staff's bottom and start again. Wings only belong at the ends of a component, but dots belong on every staff, which is why the dots are drawn inside the loop and the lines are not.</p>
+  <div class="code" data-src="src/music/Bar.js" data-open="true"></div>
+  <div class="java"><b>Java &rarr; JavaScript.</b> The dot positions are fractions of <code>H</code> written as Java integer division, <code>top+11*H/4</code>. JavaScript's <code>/</code> would give a fraction and shift the dots, so every one of them goes through <code>idiv()</code> from <code>G.js</code>. The same applies anywhere the course divides ints, including <code>Staff.lineOfY</code>, which additionally biases the origin far above the staff because truncation rounds toward zero and staff lines can have negative numbers above the staff.</div>
+
+  <h2>Bar version 1: post-mortem</h2>
+  <p>Bars are left unfinished on purpose. A double bar will eventually need to carry the key or time signature it announces, and a list of all the bars in order would let measures be numbered (or lettered in a circle, which is the older convention and the one you cannot drop).</p>
+  <p>What the section is really about is the shape of the change that just happened. Making barlines look like real barlines took three separate edits in three different places: a field to <em>hold</em> the new information, in <code>Staff.Fmt</code>; drawing code to <em>use</em> it, in <code>Bar</code>; and a gesture to let the user <em>set</em> it, hung off a <code>Staff</code> because a reaction needs a <code>Mass</code> to live on. Data, rendering, interface. Almost every feature from here on lands in those same three places.</p>
+  <p>The whole sequence in this chapter runs headlessly in the test suite: synthetic strokes are pushed through the real <code>Gesture.AREA</code>, and the assertions are about the resulting <code>Page</code>, <code>Sys</code>, <code>Staff</code> and <code>Bar</code> objects, with a recording <code>Graphics</code> standing in for the canvas. Nothing about recognition or bidding needs a browser to check.</p>
+  <div class="code" data-src="tests/music.test.js" data-lines="36-69"></div>
+
+  <div class="pn"><a href="05-reactions.html">&larr; 5. Reactions</a><a href="07-music-notes.html">7. Music Notes &rarr;</a></div>
+</main>
+<script type="module" src="../site/nav.js"></script>
+<script type="module" src="../site/lesson.js"></script>
+</body>
+</html>

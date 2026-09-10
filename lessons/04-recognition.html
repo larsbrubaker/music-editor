@@ -1,0 +1,103 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>4. Recognition - Gesture Music Editor</title>
+<link rel="stylesheet" href="../site/site.css">
+</head>
+<body>
+<header class="top" data-current="04-recognition"></header>
+<main>
+  <p class="kicker">Chapter 4</p>
+  <h1>Recognition</h1>
+  <p class="lead">Turning a mouse stroke into a name. A bounding box, a fixed number of sample points, an integer coordinate transform, and nearest neighbor matching against a database of hand-drawn prototypes: the whole recognizer is about two hundred lines and no machine learning.</p>
+  <p class="orig">Follows the chapter <em>Recognition Subsystem</em> of Marlin Eller's <a href="https://depts.washington.edu/cprogs/BCS/Books/BCS_MidJava.html">Intermediate Java</a> (sections PaintInk through Chapter Summary). The original is written for Java and IntelliJ IDEA; this page follows it in JavaScript in the browser and says where the two differ.</p>
+
+  <h2>PaintInk, the test harness</h2>
+  <p>The chapter opens by leaving the old Paint program alone and starting a new app, <code>PaintInk</code>, that will be the bench on which every piece of the recognizer gets tested. It grows through the whole chapter: first it just draws strokes, then it draws their bounding boxes, then their sample dots, then the prototypes it has collected, then the name of the shape the recognizer guessed.</p>
+  <p>Two classes appear with it. <code>PL</code> in <code>G</code> is a polyline, a fixed-size array of <code>V</code> with a <code>drawN(g, n)</code> that draws only the first <em>n</em> points, and <code>Ink.Buffer</code> extends it to capture one stroke: <code>add</code> appends a point up to <code>UC.inkBufferMax</code> (500), <code>dn</code>/<code>drag</code>/<code>up</code> are the <code>I.Area</code> methods so the app can hand the mouse straight to the buffer, and <code>show</code> draws what has been captured so far. There is exactly one of them, <code>Ink.BUFFER</code>: Eller makes the Java constructor private to say so out loud, because a second ink buffer would be a bug.</p>
+  <p>An <code>Ink</code> is what you keep after the stroke is finished. By the end of the chapter it is not a copy of the raw points at all but a <code>Norm</code> plus the <code>VS</code> box where the stroke happened on screen, which is both a compression (25 points instead of 300) and exactly the two things recognition needs.</p>
+  <div class="code" data-src="src/reaction/Ink.js" data-open="true"></div>
+
+  <h2>Bounding Box <span class="day">Day 5</span></h2>
+  <p>To scale a stroke you first have to know how big it is, so <code>BBox</code> tracks four numbers as two ranges, a horizontal <code>LoHi</code> and a vertical one. There is one deliberate lie in <code>LoHi.size()</code>: a range containing a single point reports a size of 1, not 0, because every use of it ends up as a divisor and a perfectly horizontal stroke really does have zero height.</p>
+  <p>Eller is careful about why <code>BBox</code> is not just a <code>VS</code>, even though both are rectangles. A <code>BBox</code> exists to <em>grow</em> as points arrive; a <code>VS</code> exists to hold a rectangle you draw in or scale to. Different behavior, different class, with <code>getNewVS()</code> to convert once the stroke is done.</p>
+  <p>The debug aid from this section survives in the port as a switch: <code>Ink.Buffer.showBBox</code> draws the box while you draw. Turn it on in the demo below.</p>
+  <div class="code" data-src="src/graphics/G.js" data-lines="95-113"></div>
+
+  <h2>Subsampling</h2>
+  <p>How many points is a stroke? The honest answer is to print <code>Ink.BUFFER.n</code> on screen and find out, which is the lesson inside the lesson: when you want to know what your machine does, write code, do not go read opinions. A quick short line is about fifteen points; a slow screen-filling V is nearly four hundred.</p>
+  <p>Recognition needs to ignore three things: where on the screen the stroke was, how big it was, and how many points the mouse happened to deliver. Subsampling handles the third. The course walks past spatial, temporal and maximum-curvature sampling and picks the quick and dirty one, linear sampling by index: to get <em>k</em> points out of <em>n</em>, take</p>
+  <pre class="inline">pl.points[i].set(this.points[idiv(i * (n - 1), k - 1)]);</pre>
+  <p>It is a linear function that maps 0 to 0 and <em>k</em>-1 to <em>n</em>-1, so it lands on both endpoints and interpolates the indices in between. Too many points and it throws some away; too few and it duplicates some. <code>UC.normSampleSize</code> is 25, chosen by trying 10 (visibly too coarse: draw an <em>a</em> and watch it turn into a triangle) and then trying more.</p>
+  <p><code>PL.showDots</code> is the other debug aid from this section, a blue circle on every sample point, and it is what makes the difference between the two sampling methods visible.</p>
+  <div class="java"><b>Java &rarr; JavaScript.</b> The port defaults to a different subsampler. Pointer events on a fast flick can deliver five or six points for a whole stroke, and with <em>n</em> that small the index formula truncates several <em>i</em> values to the same index and piles most of the 25 output points onto the first sample, which no longer resembles the gesture. So <code>Ink.Buffer.subSample</code> normally calls <code>subSampleByArcLength</code>, which walks the cumulative length of the path and places 25 points evenly along it. The course's <code>subSampleByIndex</code> is still there and still used when <code>Ink.Buffer.arcLength = false</code>; the demo's <b>index sampling</b> checkbox flips exactly that flag, and <code>tests/recognition.test.js</code> exercises both.</div>
+  <div class="code" data-src="src/graphics/G.js" data-lines="115-135"></div>
+
+  <h2>Coordinate Transform</h2>
+  <p>Where and how big are handled by one transform that maps any box onto any other box. There are no rotations here, so it is only a scale and a translate, four integers, and a single point moves like this:</p>
+  <pre class="inline">(x', y') = (x * n / d + dx, y * n / d + dy)</pre>
+  <p>The one scale factor <code>n/d</code> is the point of the section. <em>Anisomorphic</em> scaling, with separate factors for x and y, would stretch any rectangle onto any other and in doing so would erase aspect ratio, turning a nearly vertical slash into a perfect diagonal and a nearly horizontal one into the same perfect diagonal. Since the compass gestures differ from each other precisely by aspect ratio, the transform must be <em>isomorphic</em>: <code>setScale</code> takes the larger dimension of the old box and the larger of the new one, a "force fit" that guarantees the input lands inside the output box.</p>
+  <p>The offsets come from writing the obvious three-step recipe (translate the old center to the origin, scale, translate to the new center) and then using algebra to collapse it into one multiply and one add, which is what <code>setOff</code> returns. And the reason the multiply comes first is worth internalizing: with truncating integer division <code>17 * 4 / 5</code> is 13 but <code>4 / 5 * 17</code> is 0. Divide last, always.</p>
+  <div class="java"><b>Java &rarr; JavaScript.</b> JavaScript has no integer type, so every place the Java relied on truncation the port calls <code>idiv(a, b)</code>, which is <code>Math.trunc(a / b)</code>. That is not decoration: <code>setOff</code>, <code>V.blend</code> and the index subsampler all depend on it, and the recognition tests assert the off-by-a-pixel results the truncation produces (a normalized stroke's endpoints land a unit or two inside the 0..1000 box, not exactly on it).</div>
+  <div class="code" data-src="src/graphics/G.js" data-lines="42-78"></div>
+
+  <h2>Norms <span class="day">Day 6</span></h2>
+  <p>With subsampling and a transform in hand, a <code>Norm</code> is three lines of constructor: subsample the buffer into 25 points, set the transform from the buffer's bounding box to the normalized coordinate box <code>NCS</code> (0..1000 square), and transform. 1000 is picked so that squared distances stay in the millions, comfortably inside a 32-bit int.</p>
+  <p>A <code>Norm</code> cannot show itself, since it lives in an abstract coordinate system, but it can <code>drawAt(g, vs)</code> by running the transform the other way. That is how <code>Ink.show</code> works, and it is also how prototypes get drawn into little boxes at the top of the screen.</p>
+  <p>The one measurement everything else is built on is <code>dist</code>: sum, over all 25 points, of the squared x and y differences. No square root, because the result is only ever compared against other distances and against <code>UC.noMatchDist</code> (500000). Two strokes of the same shape score small; a V against an L scores large. PaintInk prints the distance between the last two strokes in black or red depending on which side of that threshold it falls on, which is how the number got chosen in the first place.</p>
+  <p>The threshold is really the recognizer's willingness to guess. Nearest neighbor matching on its own always returns something; capping it at <code>noMatchDist</code> lets the answer be "I do not know". Err on the small side: an honest null costs you a few more training examples, a wrong match costs you a wrong note.</p>
+
+  <h2>Shape and Prototype</h2>
+  <p>A <code>Shape</code> is a name plus the list of ways that shape can be drawn. An <em>O</em> can be drawn clockwise or counter-clockwise, and each of those actual ways is a <code>Prototype</code>, which is a <code>Norm</code> with a blend count.</p>
+  <p>Blending is the incremental average trick: if you already hold the average of <em>k</em> values and a new one arrives, the new average is <code>(k * old + new) / (k + 1)</code>. <code>V.blend</code> does it for one point, <code>Norm.blend</code> for all 25, and <code>Prototype.blend</code> passes its own <code>nBlend</code> and increments it. So every extra example you draw quietly smooths the stored prototype rather than piling up near-duplicates.</p>
+  <p><code>Prototype.List.bestDist(norm)</code> is the search: it returns the distance of the closest prototype and, as a side effect, leaves that prototype in the static <code>bestMatch</code>. Starting <code>bestSoFar</code> at <code>noMatchDist</code> means a list with nothing close enough simply returns no match. <code>Prototype.List.show</code> marches a 60-pixel showbox across the top of the window drawing each prototype with its blend count above it (the port also puts a red dot on the first point, so you can see which end of the stroke was the start).</p>
+  <p>PaintInk uses all of this even before there is a database: every stroke either blends into a matching prototype or becomes a new one, and then the ink on screen throws away its own norm and points at the prototype instead. Draw the same letter five times and all five copies on the page redraw themselves as the shared prototype gets smoother. It is a smoothing trick, a compression trick and a very direct picture of what the recognizer thinks your handwriting looks like.</p>
+  <div class="demo" data-app="PaintInk" data-name="PaintInk" data-note="draw strokes; watch the prototype boxes at the top" data-toggles="showBBox:Bounding box,showDots:Sample dots,indexSampling:Index sampling"></div>
+  <div class="code" data-src="src/sandbox/PaintInk.js" data-open="true"></div>
+
+  <h2>Refactoring &amp; Renaming</h2>
+  <p>A short aside with a long tail. Renaming used to be manual work, and the compiler would catch every reference you forgot; what it never caught, then or now, is the comments. That is why old comments are untrustworthy, and why Eller's rewrite of these notes renamed things in the earlier chapters so the text and the code agree. His conclusion is a good working attitude: the code gets to decide how it wants to be organized, and the effort of changing it is not an argument.</p>
+  <p>This port inherits the same duty. Every source file's comments were written against the code as it stands, and where JavaScript forced a difference the comment says so on the spot rather than in a document that can drift.</p>
+
+  <h2>ShapeTrainer <span class="day">Day 7</span></h2>
+  <p>To test matching across a whole database, you first need a database, so the chapter builds the tool that makes one. The trainer is PaintInk with a name attached: type a shape name, draw examples of it, and each stroke is blended into or added to that shape's prototype list.</p>
+  <ul>
+    <li><b>DOT.</b> One shape is never trained. A press and release in the same spot has a tiny bounding box and no real path, so blowing it up to 0..1000 would normalize pure noise. <code>Shape.recognize</code> therefore checks the ink's <code>vs</code> against <code>UC.dotThreshold</code> (5 pixels) first and answers <code>Shape.DOT</code> without looking at the norm at all. Note what this implies: recognition takes an <code>Ink</code>, not a <code>Norm</code>, because it needs the box as well as the shape.</li>
+    <li><b>Legal names.</b> That makes "DOT" an illegal name to type, and so is the empty string. The trainer reports the typed name as KNOWN, UNKNOWN or ILLEGAL and refuses to train the last of those.</li>
+    <li><b>Saving.</b> Deferred in the course to the serialization section, then wired to the Enter key.</li>
+    <li><b>Selection buttons.</b> Left for later: there is no browse-the-database UI, you see a shape's prototypes by typing its name.</li>
+    <li><b>Deletion buttons.</b> The course wants them, admits it would need areas and buttons that do not exist yet, and assigns them to a hypothetical intern. This port implements the poor man's version: end a stroke in the showbox strip along the top and the prototype under it is removed (<code>Trainer.removePrototype</code> turns the x coordinate into a box index with <code>idiv</code>). The course's fallback, quit without saving and lose everything, also still works.</li>
+    <li><b>Keyboard.</b> The first keyboard input in the course. <code>keyTyped</code> appends characters to the current name; space or Enter clears it. The port also handles backspace, which the course leaves as a thing to look up when you need it.</li>
+  </ul>
+  <div class="demo" data-app="ShapeTrainer" data-name="ShapeTrainer" data-note="click the canvas so it has keyboard focus, type a name like S-E, draw a few examples, press Enter to save"></div>
+  <div class="code" data-src="src/sandbox/ShapeTrainer.js" data-open="true"></div>
+
+  <h2>The Shape Database</h2>
+  <p>The database is a map from name to <code>Shape</code>. A list would do for recognition, which just scans everything, but the map is what the music editor will want: a reaction is registered against a name like <code>"S-S"</code>, and the recognizer hands back the shape with that name.</p>
+  <p><code>Database</code> wraps the map so it can own the small rules: <code>forceGet</code> always returns a shape, creating it if this is the first example; <code>isLegal</code> rejects the empty name, DOT, and anything with whitespace in it; <code>train(name, norm)</code> checks legality and forwards to <code>Prototype.List.train</code>, which blends or adds. That last refactoring is the point of the section. Moving training out of the app and into <code>Shape</code> is what will later make it possible for an application to notice that a gesture it needs is missing and ask the user to draw a few.</p>
+  <div class="java"><b>Java &rarr; JavaScript.</b> The Java <code>Database</code> extends <code>TreeMap</code>, so it is sorted; the port extends the built-in <code>Map</code>, which is insertion-ordered. Nothing depends on the order. What did need care is <code>Shape.LIST</code>: in Java, <code>DB.values()</code> is a live view that can be stored in a static field once, but in JavaScript <code>values()</code> returns a one-shot iterator, so <code>Shape.LIST</code> is defined as a getter that calls it fresh each time.</div>
+
+  <h2>Serialization, or a JSON file instead</h2>
+  <p>The course reaches for Java serialization: mark the classes <code>Serializable</code>, write the one top-level object to a stream, read it back. Eller then spends a page on the warning that comes with it, and it is the right warning. A serialized graph breaks the moment you add a field, and it is not a format you can hand to another machine. Serialization there is a development convenience, not a file format.</p>
+  <div class="java"><b>Java &rarr; JavaScript.</b> The port takes the warning's advice and writes a real format instead: a small JSON document, <code>{ version, shapes }</code>, where each prototype is its blend count and its fifty integers. <code>Database.toJSON</code> and <code>mergeJSON</code> are the two halves, and merging deliberately keeps existing <code>Shape</code> objects and replaces only their prototype lists, because reactions will be holding references to those shapes. Saving goes to <code>localStorage</code> under <code>UC.shapeDatabaseFileName</code> rather than to a file, guarded so that Node tests can call the same code with no browser present.</div>
+  <p>There is a second difference that matters more. Nothing ships a serialized file here, because a baseline database has to exist before anyone has trained anything. <code>scripts/gen-shapes.js</code> generates <code>assets/shapes.json</code> by pushing synthetic strokes through the real <code>Ink</code> &rarr; <code>Norm</code> &rarr; <code>Database.train</code> pipeline, so the stored prototypes are exactly what the trainer would have produced by hand: ten compass gestures, several at different aspect ratios, plus an <em>O</em> drawn each way round. <code>Shape.loadDefaults</code> fetches that file and lets anything you trained in this browser win over it. The editor's sidebar can download the current database, load one back, or reset to the shipped defaults.</p>
+  <div class="code" data-src="scripts/gen-shapes.js" data-open="true"></div>
+
+  <h2>Test Recognition &amp; Refactoring <span class="day">Day 8</span></h2>
+  <p>With a trained database, PaintInk gets its last line: run each finished stroke through <code>Shape.recognize</code> and print the name, or UN-RECOGNIZED when nothing was close enough. Draw a few gestures in the demo above and watch it; then draw something ridiculous and watch it correctly refuse.</p>
+  <p>The chapter closes by looking at the trainer's <code>mouseReleased</code>, deciding it is far too long, and moving nearly all of it into a new <code>Shape.Trainer</code>. What is left in the <code>ShapeTrainer</code> app is a handful of one-line overrides that forward to <code>Shape.TRAINER</code> and call <code>repaint()</code>, which only a <code>WinApp</code> can do. The trainer implements <code>I.Show</code> and <code>I.Area</code>, which is the same pair of interfaces everything else in the system uses, and that is what will let the finished editor flip between the music view and the training view with one boolean.</p>
+  <div class="code" data-src="src/reaction/Shape.js" data-open="true"></div>
+  <div class="java"><b>Java &rarr; JavaScript.</b> All of this is testable without a browser, and it is tested. <code>tests/recognition.test.js</code> drives the real classes with synthetic strokes: both subsamplers, the 0..1000 normalization, distance between same and different shapes, blending, recognition of every shipped gesture with jitter at various sizes and positions, the DOT special case, the JSON round trip, and the trainer typing a name and deleting a prototype. There is also a regression test for the arc-length change: a stroke made of only a few mouse samples must still recognize.</div>
+  <div class="code" data-src="tests/recognition.test.js"></div>
+
+  <h2>Summary</h2>
+  <p>That is the whole recognizer: a bounding box, subsampling to a fixed 25 points, an integer isomorphic transform into a 1000-unit square, squared Euclidean distance, nearest neighbor with a refusal threshold, incremental averaging to smooth prototypes, and a trainer to collect them. No libraries, no training run, and small enough to read in one sitting. With recognition working, the next chapter can build the framework that decides what a recognized gesture should <em>do</em>.</p>
+
+  <div class="pn"><a href="03-reaction-architecture.html">&larr; 3. Reaction Architecture</a><a href="05-reactions.html">5. Reactions &rarr;</a></div>
+</main>
+<script type="module" src="../site/nav.js"></script>
+<script type="module" src="../site/lesson.js"></script>
+</body>
+</html>

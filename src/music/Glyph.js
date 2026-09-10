@@ -71,7 +71,8 @@ Glyph.REST_4F = new Glyph(61505, 16, 0, 4);
 // rendering the font (the GlyphSheet demo): 61511 natural, 61512 flat, 61513 sharp
 // (61514/61515 are the double flat and double sharp). dy centers the sign on its
 // line: the sharp and the natural by their middle, the flat by its loop, which is
-// why the flat's dy is fractional (JavaScript lets us, the course's int could not).
+// why the flat's dy is fractional (dy is a double in the course too; only the font
+// size is truncated to an int in showAt).
 Glyph.SHARP = new Glyph(61513, 16, 0, 5);
 Glyph.FLAT = new Glyph(61512, 16, 0, 4.5);
 Glyph.NATURAL = new Glyph(61511, 16, 0, 5);

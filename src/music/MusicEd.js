@@ -18,7 +18,7 @@ export class MusicEd extends WinApp {
     super('Music Editor', UC.mainWindowWidth, UC.mainWindowHeight);
     this.training = false;         // high level mode switch
     this.curArea = Gesture.AREA;   // Gestures or Training at any time
-    this.PAGE = null;              // single page app; set by the initial reaction
+    this._page = null;             // single page app; set by the initial reaction
     this.onChange = null;          // optional callback for a surrounding UI
     this.newPage();
   }
@@ -27,7 +27,7 @@ export class MusicEd extends WinApp {
   newPage() {
     World.reset();
     Layer.ensure('BACK'); Layer.ensure('NOTE'); Layer.ensure('FORE');
-    this.PAGE = null;
+    this._page = null;
     const r = new Reaction('W-W', // define the top margin: creates the Page, then retires
       (g) => 0,
       (g) => { this.PAGE = new Page(g.vs.yM()); r.disable(); });
@@ -53,7 +53,6 @@ export class MusicEd extends WinApp {
   mouseDragged(me) { this.curArea.drag(me.getX(), me.getY()); this.repaint(); }
   mouseReleased(me) {
     this.curArea.up(me.getX(), me.getY());
-    this.syncPage();
     this.trainBtn(me);
     if (this.onChange) { this.onChange(); }
     this.repaint();
@@ -68,7 +67,9 @@ export class MusicEd extends WinApp {
     this.repaint();
   }
   keyTyped(ke) { if (this.training) { Shape.TRAINER.keyTyped(ke); this.repaint(); } }
-  undo() { Gesture.undo(); this.syncPage(); this.repaint(); }
-  // undo replays the gesture list from nothing; if the page-making stroke was undone there is no page
-  syncPage() { if (this.PAGE != null && !Layer.byName.get('BACK').includes(this.PAGE)) { this.PAGE = null; } }
+  undo() { Gesture.undo(); this.repaint(); }
+  // undo replays the gesture list from nothing; if the page-making stroke was undone the
+  // page it made is no longer in the layers, and then there is no page
+  get PAGE() { return (this._page != null && Layer.byName.get('BACK').includes(this._page)) ? this._page : null; }
+  set PAGE(p) { this._page = p; }
 }

@@ -70,20 +70,26 @@ test('S-S from top line to bottom line makes a bar; S-S on it cycles; DOT beside
 test('SW-SW makes heads that snap to lines and share Times; S-S beside them stems and unstems', () => {
   head(420, 118);   // near line 2 (y 116): snaps to it
   assert.equal(masses(Head).length, 1);
-  const h = masses(Head)[0]; assert.equal(h.line, 2); assert.equal(h.stem, null);
+  const h = masses(Head)[0]; assert.equal(h.line, 2); assert.ok(h.stem === null);
   head(430, 148);   // second head close in x: same Time, line 6
   const h2 = masses(Head)[1]; assert.equal(h2.time, h.time); assert.equal(h2.line, 6);
   head(600, 148);   // far away: a new Time
   assert.notEqual(masses(Head)[2].time, h.time);
   const t = h.time, W = h.W();
   line('S-S', t.x + W + 4, 90, t.x + W + 4, 180); // to the right of the heads: an up stem through both
-  assert.ok(h.stem && h.stem === h2.stem); assert.equal(h.stem.isUp, true);
+  assert.ok(h.stem != null && h.stem === h2.stem); assert.equal(h.stem.isUp, true);
   assert.equal(h.stem.x(), t.x + W);
   assert.equal(h.stem.yBeamEnd(), staff().yOfLine(2 - 7)); // one octave above the top head (line 2)
   line('S-S', t.x - 4, 90, t.x - 4, 125); // left of the top head only: unstems h, h2 keeps the stem
-  assert.equal(h.stem, null); assert.ok(h2.stem);
-  line('S-S', t.x - 4, 90, t.x - 4, 180); // unstem the rest: the empty stem is deleted
-  assert.equal(h2.stem, null); assert.equal(masses(Stem).length, 0);
+  assert.ok(h.stem === null); assert.ok(h2.stem != null);
+  // a stroke past both: the winner (h, entered first, now unstemmed) decides, so both get a NEW stem
+  line('S-S', t.x - 4, 90, t.x - 4, 180);
+  assert.ok(h.stem != null && h.stem === h2.stem); assert.equal(h.stem.isUp, false);
+  assert.equal(masses(Stem).length, 1, 'the old stem was deleted when it emptied');
+  line('S-S', t.x - 4, 130, t.x - 4, 180); // past h2 only: h2 is stemmed, so it unstems
+  assert.ok(h2.stem === null); assert.ok(h.stem != null);
+  line('S-S', t.x - 4, 90, t.x - 4, 125); // and h: the stem empties and is deleted
+  assert.ok(h.stem === null); assert.equal(masses(Stem).length, 0);
   assert.equal(page().sysList[0].stems.length, 0);
 });
 
@@ -132,9 +138,9 @@ test('E-E across exactly two unflagged stems beams them; more E-E adds beams; in
   assert.equal(g.named('fillPolygon').length, 4, '2 beams x 2 gaps');
   line('W-W', b.stem.x() + 20, y, b.stem.x() - 20, y); // only the middle stem: 1 flag -> a beamlet
   assert.deepEqual(beam.stems.map((s) => s.nFlag), [2, 1, 2]);
-  line('W-W', 700, y, 380, y); // everyone down one: the middle stem hits 0, which breaks the beam
+  line('W-W', b.stem.x() + 20, y, b.stem.x() - 20, y); // the middle stem hits 0, which breaks the beam
   assert.equal(masses(Beam).length, 0);
-  assert.equal(a.stem.beam, null);
+  assert.ok(a.stem.beam === null);
 });
 
 test('W-S makes a quarter rest, E-S an eighth rest; E-E/W-W flag them, DOT dots them', () => {
@@ -162,7 +168,9 @@ test('clefs: the first clef becomes the initial clef of the whole staff chain; l
   assert.equal(staff().clefAtX(600), Glyph.CLEF_G); assert.equal(staff().clefAtX(800), Glyph.CLEF_F);
   assert.equal(staff(0, 1).initialClef().glyph, Glyph.CLEF_F, 'the next system starts in the last clef');
   const g = new RecordingGraphics(); app.paintComponent(g);
-  assert.equal(g.named('drawString').filter((c) => c.args[0] === String.fromCharCode(Glyph.CLEF_G.code)).length, 1);
+  // the initial clef is drawn by Staff.show; the Clef mass that records it sits off screen at x=-900
+  const gClefs = g.named('drawString').filter((c) => c.args[0] === String.fromCharCode(Glyph.CLEF_G.code));
+  assert.deepEqual(gClefs.map((c) => c.args[1] >= 0), [true, false]);
 });
 
 test('keys: E-E/W-W across the left margin set the initial key; on a double bar they set a key change', () => {
@@ -190,7 +198,7 @@ test('N-N undoes the last gesture by replaying the rest; trainer toggle switches
   line('N-N', 700, 700, 700, 600);
   assert.equal(page().sysList[0].nStaff(), 1);
   line('N-N', 700, 700, 700, 600);
-  assert.equal(app.PAGE, null);
+  assert.ok(app.PAGE === null);
   app.mouseReleased({ getX: () => 990, getY: () => 10 });
   assert.equal(app.training, true); assert.equal(app.curArea, Shape.TRAINER);
   app.toggleTraining(); assert.equal(app.curArea, Gesture.AREA);

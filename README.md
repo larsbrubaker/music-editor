@@ -19,5 +19,5 @@ npm test         # node --test tests/  (headless, < 1s)
 
 No build step and no dependencies: the site is the repo.
 
-See `CLAUDE.md` for the engineering guidelines (test-first bug fixing, the 800
+Current state and next steps: `STATUS.md`. See `CLAUDE.md` for the engineering guidelines (test-first bug fixing, the 800
 line file limit, project map).

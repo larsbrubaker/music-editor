@@ -1,0 +1,94 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>8. Refactoring &amp; Appendix - Gesture Music Editor</title>
+<link rel="stylesheet" href="../site/site.css">
+</head>
+<body>
+<header class="top" data-current="08-refactoring-and-appendix"></header>
+<main>
+  <p class="kicker">Chapter 8</p>
+  <h1>Refactoring &amp; Appendix</h1>
+  <p class="lead">Breaking the thousand-line music app into a package of small files, taking the application back out of the music code, and the appendix: parabolic splines, and an honest list of what neither the course nor this port finished.</p>
+  <p class="orig">Follows the last sections of <em>Music Notes</em> (Refactoring, Music2.java, The Music Package) and the whole <em>Appendix</em> chapter (Splines, Not Yet) of Marlin Eller's <a href="https://depts.washington.edu/cprogs/BCS/Books/BCS_MidJava.html">Intermediate Java</a>. The course's notes stop mid-sentence at "still writing this course", so this page is partly about where the code ends and what would come next.</p>
+
+  <h2>Why refactor at all</h2>
+  <p>Everything since chapter 6 has gone into one sandbox class, <code>Music1</code>, with staffs, bars, heads, stems, beams and rests as nested classes inside it. Eller is blunt about how that turned out: the file passed a thousand lines and finding anything meant scrolling. His defence of it is the honest one. Code is never organized the way you wish it were, because the organization that seemed right at the start stops being right once the project has grown, and the moment you notice is usually the moment you cannot afford to fix it because version 1 has to ship. Version 2 is where you get to keep the good code and throw away the arrangement.</p>
+  <p>So the last act of the course is a rearrangement, not a rewrite. Not one drawing rule or bidding formula changes. What changes is who can see what.</p>
+
+  <h2>Step 1: one class per file</h2>
+  <p>Each nested class is cut out of <code>Music1</code> and pasted into its own file in the <b>music</b> package: <code>Bar</code>, <code>Beam</code>, <code>Duration</code>, <code>Glyph</code>, <code>Head</code>, <code>Page</code>, <code>Rest</code>, <code>Staff</code>, <code>Stem</code>, <code>Sys</code>, <code>Time</code>. Two warnings come with it. The word <code>static</code> comes off every class header, because these were nested classes and are now top level. And when the IDE offers to fix the imports you must read what it proposes, because a <code>Stem</code> that used to mean <code>Music1.Stem</code> will happily be repaired into a reference back to the old sandbox class instead of the new neighbour that does not exist yet.</p>
+  <div class="java"><b>Java &rarr; JavaScript.</b> This port was written file-per-class from the start, so Step 1 is already done everywhere and there is nothing to cut apart. The trap has an exact ES module equivalent though: an <code>import</code> that resolves to the wrong module is not an error, it is just a different class with the same name, and you find out when something draws in the wrong place.</div>
+  <p>The course's final package listing lines up with <code>src/music</code> like this.</p>
+  <table class="g">
+    <tr><th>Course file</th><th>This port</th></tr>
+    <tr><td>APP.java</td><td>none &mdash; see below</td></tr>
+    <tr><td>Bar.java</td><td><code>src/music/Bar.js</code></td></tr>
+    <tr><td>Beam.java</td><td><code>src/music/Beam.js</code></td></tr>
+    <tr><td>Duration.java</td><td><code>src/music/Duration.js</code></td></tr>
+    <tr><td>Glyph.java</td><td><code>src/music/Glyph.js</code></td></tr>
+    <tr><td>Head.java</td><td><code>src/music/Head.js</code></td></tr>
+    <tr><td>Rest.java</td><td><code>src/music/Rest.js</code></td></tr>
+    <tr><td>Staff.java (with <code>Staff.Fmt</code>)</td><td><code>src/music/Staff.js</code> (same two nested classes, plus <code>Staff.List</code>)</td></tr>
+    <tr><td>Stem.java (with <code>Stem.List</code>)</td><td><code>src/music/Stem.js</code></td></tr>
+    <tr><td>Sys.java (with <code>Sys.Fmt</code>)</td><td><code>src/music/Sys.js</code>, but there is no <code>Sys.Fmt</code>; <code>Page</code> keeps <code>maxH</code></td></tr>
+    <tr><td>Time.java (with <code>Time.List</code>)</td><td><code>src/music/Time.js</code></td></tr>
+    <tr><td>Page.java (deleted in Step 6)</td><td><code>src/music/Page.js</code>, still a real class</td></tr>
+    <tr><td>&mdash;</td><td><code>src/music/Clef.js</code>, <code>Key.js</code>, <code>MusicEd.js</code></td></tr>
+  </table>
+  <p><code>Clef</code> and <code>Key</code> arrived late enough in the course that they never appear in the final listing at all; here they get files of their own like everything else.</p>
+
+  <h2>Steps 2&ndash;4: the privacy sweep</h2>
+  <p>The second step is the interesting one. Everything in <code>Music1</code> was public, and Eller points out that this made no difference whatsoever: Java does not enforce access between nested classes, so privacy was a file-level idea, not a class-level one. Splitting the file into eleven files turns all of that into real access control, and the exercise he recommends is to mark everything private on purpose, watch the compiler light up, and then decide case by case whether the answer is "this really should be public" or "this needs a helper".</p>
+  <p>Both answers appear. Lists get helpers, so <code>Time</code> asks <code>sys.addTime(this)</code> rather than reaching into a list, and <code>Staff</code> gets its own index back from <code>sys.addStaff(this)</code> in one line. But a <code>Time</code> exists only to be a shared x value, and hiding that x behind a getter would be ceremony; his position is that getters and setters everywhere are just public fields with extra typing, and that deciding what is public is the actual work.</p>
+  <p>Step 4 is a design argument worth reading twice. Taking a head off a stem needs two things done: the head comes off the stem's list (and if it was the last one, the stem deletes itself) and the head's own <code>stem</code> and <code>wrongSide</code> fields have to be cleared. Splitting that work between <code>Stem.removeHead</code> and <code>Head.unStem</code> looks tidy, one class per set of fields, but it leaves a public <code>removeHead</code> that is not safe to call on its own, and in a year nobody will remember that. So he makes <code>removeHead</code> do the whole job and leaves a comment in <code>unStem</code> saying so. The port follows that decision, comment and all.</p>
+  <div class="code" data-src="src/music/Stem.js" data-lines="103-114"></div>
+  <div class="code" data-src="src/music/Head.js" data-lines="78-81"></div>
+
+  <h2>Steps 5&ndash;6: getting the application out of the music package</h2>
+  <p>The real target of the refactoring is three application-level globals, <code>PAGE</code>, <code>SYSFMT</code> and <code>SYSTEMS</code>, which the music classes had been reading directly. A package that reaches up into one particular application cannot be reused by a second one, and worse, the globals bake in the assumption of a single page.</p>
+  <p>The fix is staged. First the singletons that plausibly belong to a page become members of <code>Page</code> (its system list and its format), and a <code>Sys</code> learns which page it is on, so <code>Bar</code> and <code>Staff</code> can reach both through <code>sys.page</code>. Then the formats stop referring to a page at all and take one as an argument, since a <code>Staff.Fmt</code> shared by many pages must not own any one of them. What is left over is the question of who decides whether there is one page or many, and that is the application's decision, not the music package's. So it becomes a contract: interfaces <code>I.Margins</code>, <code>I.Page</code> and <code>I.MusicApp</code>, plus a one-line class whose only job is to hold the app.</p>
+  <p>The names are chosen so that every reference from inside the music package reads the same way, which is the whole point:</p>
+  <pre class="inline">APP.get.sysfmt(sys.page).maxH</pre>
+  <p>The application now implements <code>I.MusicApp</code> and assigns <code>APP.get = this</code> in its constructor. The concrete <code>Page</code> class, having become a placeholder for a single-page program, is deleted; every <code>page.top</code> becomes <code>page.top()</code>. The new app is <code>Music2</code>, and Eller's two closing mistakes are the ones you would make too: he forgot to point <code>Main</code> at <code>Music2</code> and was delighted that his enormous edit ran perfectly the first time, and then forgot the <code>APP.get</code> assignment and got a null pointer immediately.</p>
+
+  <h3>Where this port stops</h3>
+  <p>Plainly: this port does not do Steps 5 and 6. There is no <code>Music2.js</code>, no <code>I.js</code>, no <code>APP.js</code>. <code>src/music</code> ends at the course's single-page editor, here called <code>MusicEd</code>, with the later chapters' bug fixes already folded in. <code>Page</code> is still a concrete class that owns the margins, the system list, <code>sysGap</code> and <code>maxH</code>, and music classes that need a margin walk up to it: <code>this.sys.page.margins.left</code>. There is no <code>Sys.Fmt</code> either; the one thing it carried that we still need, <code>maxH</code>, lives on the <code>Page</code>.</p>
+  <p>That is a deliberate stop, not an oversight. The interface layer buys multi-page support, and this editor has one page and no way to make a second; adding the contract now would be a layer of indirection guarding a decision nobody is making. If a second application ever wants the music package, Step 5 is written down and waiting.</p>
+  <div class="code" data-src="src/music/Page.js" data-open="true"></div>
+
+  <h2>The same goals, reached differently</h2>
+  <p>The refactoring has three goals underneath it: files small enough to read, a package boundary that is actually enforced, and confidence that a rearrangement of this size did not break anything. This port pursues all three, just not with interfaces.</p>
+  <ul>
+    <li><b>The boundary is the import list.</b> ES modules make the dependency direction visible at the top of every file, and here it only ever points one way: <code>src/graphics</code> imports nothing outside itself, <code>src/reaction</code> imports only from <code>src/graphics</code>, and <code>src/music</code> imports from both. Nothing in <code>graphics</code> or <code>reaction</code> mentions music, which is the property <code>I.MusicApp</code> exists to protect. A one-line <code>grep</code> checks it.</li>
+    <li><b>Files stay small by rule.</b> No source file may exceed 800 non-empty lines, and a test enforces it, so the thousand-line <code>Music1</code> could not have happened here. The largest file in <code>src/music</code> is about 140 lines.</li>
+    <li><b>The refactoring is testable.</b> The course had no tests, which is why its refactoring advice is all about the compiler catching you. This repo has a headless suite instead: <code>RecordingGraphics</code> is a fake <code>Graphics</code> that records every drawing call so layout can be asserted without a canvas, and <code>strokes.js</code> synthesizes gestures so the whole editor can be driven from Node. Moving code between files either keeps those passing or it does not.</li>
+  </ul>
+  <div class="code" data-src="tests/file-compliance.test.js"></div>
+  <div class="code" data-src="tests/helpers/RecordingGraphics.js"></div>
+
+  <h2>Appendix: splines</h2>
+  <p>An editor like this eventually needs smooth curves &mdash; braces, ties, slurs, trills &mdash; and none of the tools so far can draw one. Lines and ovals are too rigid and the music font gives only fixed shapes. A spline is the third mechanism: you name the points the curve must pass through and the direction it must be travelling at each one, and the code invents everything in between.</p>
+  <p>Eller picks the parabolic (quadratic) spline over the usual cubic Bezier for a simple reason: the code is shorter, and the extra control a cubic gives you matters when a human is dragging control points, not when your own code is asking for a slur. Three points: the curve runs from A to C, and B is not on the curve at all. B's job is to supply both tangents at once, since AB is the direction the curve leaves A and BC is the direction it arrives at C.</p>
+  <p>The algorithm is recursion on midpoints, and it is pretty. Take the midpoint of AB, the midpoint of BC, and the midpoint of those two, call it ABC. That last point genuinely is on the curve, and it splits the problem into two smaller splines of exactly the same shape. Smoothness falls out for free: AB, ABC and BC are collinear by construction, so the tangent entering the join is the tangent leaving it. There is no multiplication anywhere, only sums and halves, which is why the method dates from machines where a divide was expensive and a shift was not.</p>
+  <p>Knowing when to stop is usually the hard part of a recursive curve routine, and the course sidesteps it: rather than measure flatness on every call and pay for the measurement whether or not it saves work, pass in a small depth like 4 and count down. That fixes the curve at 2<sup>4</sup> segments. It is the right trade here because both intended uses &mdash; tiny trill wiggles and long, barely-bent slurs &mdash; need very little subdivision anyway.</p>
+  <p>Splines know nothing about music, so they belong in <code>G</code>. There are two versions. <code>G.spline</code> draws its segments as it goes; <code>G.pSpline</code> appends them to the shared polygon buffer <code>G.poly</code>, which is what you want when a shape is several curves and some straight lines that all have to be filled as one outline.</p>
+  <div class="code" data-src="src/graphics/G.js" data-lines="21-40"></div>
+  <p>The course tests it by dropping a random spline into <code>Music2.paintComponent</code>. Here it is a sandbox app instead: A and C are pinned, and clicking or dragging moves the control point B, with the two tangent lines drawn in grey so you can watch the curve leave A aimed at B and arrive at C as if it had come from B.</p>
+  <div class="demo" data-app="SplineDemo" data-name="SplineDemo" data-note="click or drag to move the control point B"></div>
+  <div class="code" data-src="src/sandbox/SplineDemo.js" data-open="true"></div>
+  <div class="java"><b>Java &rarr; JavaScript.</b> The midpoints use <code>idiv</code>, not <code>/</code>. Every midpoint here was an int division in Java, and the recursion divides eight times over, so floating point halves would drift the vertices off the pixel grid the rest of the drawing code sits on. <code>G.poly</code> is a <code>Polygon</code> shim over the canvas path calls, with the same <code>reset</code>/<code>addPoint</code> interface the course uses.</div>
+
+  <h2>Not Yet</h2>
+  <p>The course ends here, and it ends honestly: the notes were being written while the class was being taught, the last two sections are titled "Not Yet" and "UnderConstruction", and the final line is that the course is still being written. Which means the splines never get used. Nothing draws a brace, a tie, a slur or a trill; the curve machinery is built and then the notes run out. Beyond that, everything a real notation editor needs is still missing: more than one page, saving and loading, printing, playback, lyrics, dynamics, accidentals beyond the key signature.</p>
+  <p>This port has its own list, kept in <code>docs/STATUS.md</code> rather than here so it can shrink without this page going stale. At the time of writing it is short: these lesson pages themselves, a review pass over the reaction and music packages, and a handful of small niceties &mdash; a touch-input check on phones, a debug toggle for glyph bounding boxes, and finding a job for the one recognized gesture that currently does nothing.</p>
+  <p>That is the whole project. The editor is in the next link, and everything it does &mdash; every stroke that becomes a staff, a note, a beam or a bar &mdash; came out of the eight chapters behind you.</p>
+
+  <div class="pn"><a href="07-music-notes.html">&larr; 7. Music Notes</a><a href="../app/">The App &rarr;</a></div>
+</main>
+<script type="module" src="../site/nav.js"></script>
+<script type="module" src="../site/lesson.js"></script>
+</body>
+</html>
